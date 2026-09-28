@@ -1,0 +1,28 @@
+{
+  "name": "truth-pill-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Truth Pill — NestJS backend. Phase 00/01: Prisma schema only, no runtime code yet.",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "db:validate": "prisma validate",
+    "db:format": "prisma format",
+    "db:generate": "prisma generate",
+    "db:diff": "prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script",
+    "db:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-neon": "^7.0.0",
+    "@prisma/client": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "dotenv": "^17.0.0",
+    "prisma": "^7.0.0",
+    "typescript": "^5.7.2"
+  }
+}
