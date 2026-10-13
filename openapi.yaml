@@ -1,0 +1,6445 @@
+openapi: 3.0.0
+paths:
+  /api/v1/admin/dashboard-stats:
+    get:
+      description: Reads the cache row — never a full-table scan. No user document or secret is projected.
+      operationId: AdminController_dashboardStats
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStatsDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Dashboard counters from the derived globalStats cache (frozen `admin.getDashboardStats`)
+      tags:
+        - admin
+  /api/v1/admin/recent-activity:
+    get:
+      operationId: AdminController_recentActivity
+      parameters:
+        - name: limit
+          required: true
+          in: query
+          schema:
+            minimum: 1
+            maximum: 50
+            default: 10
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityItemDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Recent comments/signups/articles feed (frozen `admin.getRecentActivity`)
+      tags:
+        - admin
+  /api/v1/admin/users:
+    get:
+      operationId: AdminUsersController_list
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: 1-based page number.
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: pageSize
+          required: false
+          in: query
+          description: Items per page (1-100).
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminUserDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: List users (admin only, projected)
+      tags:
+        - admin-users
+  /api/v1/admin/users/{id}/role:
+    patch:
+      operationId: AdminUsersController_updateRole
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRoleDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserProjectionDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: User not found.
+      summary: Change a user role (admin only)
+      tags:
+        - admin-users
+  /api/v1/ads-settings/ads-settings:
+    get:
+      operationId: AdsController_getAdsSettings
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsSettingsResponseDto'
+      security:
+        - {}
+      summary: Current ad settings, frozen defaults when absent (`ads.getAdsSettings`)
+      tags:
+        - ads-settings
+  /api/v1/ads-settings/update-ads-settings:
+    patch:
+      operationId: AdsController_updateAdsSettings
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdsSettingsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsSettingsResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Upsert the ad settings singleton (frozen `ads.updateAdsSettings`, admin-gated)
+      tags:
+        - ads-settings
+  /api/v1/ai-actions/generate-article-from-topic:
+    post:
+      description: Reuses the Phase 05 `saveAIDraft` writer and marks the topic processed. Malformed model output is 422.
+      operationId: AiActionsController_generateArticleFromTopic
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateArticleFromTopicDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body — a deleted caller-supplied `apiKey` is a 400 (DEV-053).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: The provider key is not configured, or the model output could not be parsed.
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: Generate + persist an AI draft from a topic (frozen `generateArticleFromTopic`, DEV-053)
+      tags:
+        - ai-actions
+  /api/v1/ai-actions/generate-content:
+    post:
+      description: The key is read server-side; a body carrying `apiKey` is a 400 (deleted field).
+      operationId: AiActionsController_generateContent
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateContentDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: string
+        '400':
+          description: Invalid input or an unknown-field body — a deleted caller-supplied `apiKey` is a 400 (DEV-053).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: The provider key is not configured, or the model output could not be parsed.
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: Generate raw content (frozen `generateContent`, DEV-053)
+      tags:
+        - ai-actions
+  /api/v1/ai-actions/learn-author-style:
+    post:
+      operationId: AiActionsController_learnAuthorStyle
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LearnAuthorStyleDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: string
+        '400':
+          description: Invalid input or an unknown-field body — a deleted caller-supplied `apiKey` is a 400 (DEV-053).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: The provider key is not configured, or the model output could not be parsed.
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: Learn the author style from featured articles (frozen `learnAuthorStyle`, DEV-053)
+      tags:
+        - ai-actions
+  /api/v1/ai-actions/models:
+    post:
+      description: OpenAI `gpt-*`/`o1-*` or Gemini generateContent-capable models, sorted. A transient `apiKey` is accepted, never echoed (DEV-053).
+      operationId: AiActionsController_fetchModels
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FetchModelsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          description: Invalid input or an unknown-field body — a deleted caller-supplied `apiKey` is a 400 (DEV-053).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: The provider key is not configured, or the model output could not be parsed.
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: List provider chat models (frozen `fetchModels`)
+      tags:
+        - ai-actions
+  /api/v1/ai-actions/shuffle-topics:
+    post:
+      operationId: AiActionsController_shuffleTopics
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShuffleTopicsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShuffleSuggestionDto'
+        '400':
+          description: Invalid input or an unknown-field body — a deleted caller-supplied `apiKey` is a 400 (DEV-053).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: The provider key is not configured, or the model output could not be parsed.
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: Suggest 5 topics from the category names (frozen `shuffleTopics`, DEV-053)
+      tags:
+        - ai-actions
+  /api/v1/ai-actions/test-connection:
+    post:
+      description: A transient `apiKey` is accepted, never echoed or persisted. A failure returns a generic message with no provider internals (Hard Rule 4).
+      operationId: AiActionsController_testConnection
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestConnectionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResultDto'
+        '400':
+          description: Invalid input or an unknown-field body — a deleted caller-supplied `apiKey` is a 400 (DEV-053).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: Test a provider credential (frozen `testConnection`)
+      tags:
+        - ai-actions
+  /api/v1/ai/add-research-topic:
+    patch:
+      operationId: AiController_addResearchTopic
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddResearchTopicDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: '`categoryId` does not resolve.'
+      summary: Add a pending research topic (frozen `addResearchTopic`)
+      tags:
+        - ai
+  /api/v1/ai/aidrafts:
+    get:
+      operationId: AiController_listAIDrafts
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArticleDetailDto'
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: 'AI drafts: status=''draft'' AND source=''ai'', newest first (frozen `listAIDrafts`)'
+      tags:
+        - ai
+  /api/v1/ai/clear-all-pending-topics:
+    patch:
+      operationId: AiController_clearAllPendingTopics
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearTopicsResultDto'
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Delete every pending research topic (frozen `clearAllPendingTopics`)
+      tags:
+        - ai
+  /api/v1/ai/delete-research-topic:
+    delete:
+      operationId: AiController_deleteResearchTopic
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Delete a research topic by id (frozen `deleteResearchTopic`)
+      tags:
+        - ai
+  /api/v1/ai/delete-schedule:
+    delete:
+      operationId: AiController_deleteSchedule
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Delete a schedule by id (frozen `deleteSchedule`)
+      tags:
+        - ai
+  /api/v1/ai/mark-topic-as-processed:
+    patch:
+      operationId: AiController_markTopicAsProcessed
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkTopicAsProcessedDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Mark the pending topic with this text processed (frozen `markTopicAsProcessed`)
+      tags:
+        - ai
+  /api/v1/ai/pending-schedules:
+    get:
+      operationId: AiController_getPendingSchedules
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleDto'
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Active schedules inside the 15-min window, not yet run today in their tz (frozen `getPendingSchedules`)
+      tags:
+        - ai
+  /api/v1/ai/research-topics:
+    get:
+      operationId: AiController_getResearchTopics
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchTopicDto'
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Research topics, newest first (frozen `getResearchTopics`)
+      tags:
+        - ai
+  /api/v1/ai/run-single-research:
+    post:
+      description: Admin + per-admin throttled (10/60s → 429). The provider key is read server-side; a missing key is 422.
+      operationId: AiController_runSingleResearch
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunSingleResearchDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '422':
+          description: AI settings/key are not configured.
+        '429':
+          description: Per-admin billed-action throttle exceeded (`Retry-After`).
+      summary: Generate one article for a topic (frozen `runSingleResearch`, DEV-049/DEV-053)
+      tags:
+        - ai
+  /api/v1/ai/schedule:
+    get:
+      operationId: AiController_getSchedule
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleDto'
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: All AI schedules (frozen `getSchedule`, DEV-051)
+      tags:
+        - ai
+  /api/v1/ai/set-writing-status:
+    patch:
+      operationId: AiController_setWritingStatus
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetWritingStatusDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Set/clear the writing flag (frozen `setWritingStatus`, DEV-051)
+      tags:
+        - ai
+  /api/v1/ai/settings:
+    get:
+      description: Returns the settings minus `apiKey`, plus a derived `hasApiKey` boolean. The key never transits a response.
+      operationId: AiController_getSettings
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSettingsDto'
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: AI settings, projected without the key (frozen `getSettings`, DEV-048/S-010)
+      tags:
+        - ai
+  /api/v1/ai/update-last-run:
+    patch:
+      operationId: AiController_updateLastRun
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLastRunDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: The `id` does not resolve.
+      summary: Set a schedule lastRun to now (frozen `updateLastRun`, DEV-051)
+      tags:
+        - ai
+  /api/v1/ai/update-schedule-v2:
+    patch:
+      description: 'An insert maps the frozen `lastRun: 0` sentinel to `null` ("never run").'
+      operationId: AiController_updateScheduleV2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleV2Dto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: The `id` does not resolve.
+      summary: Patch a schedule by id, else insert (frozen `updateScheduleV2`, DEV-051)
+      tags:
+        - ai
+  /api/v1/ai/update-settings:
+    patch:
+      description: An absent or empty `apiKey` retains the stored credential. The response is `{success:true}` and never echoes the key.
+      operationId: AiController_updateSettings
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSuccessDto'
+        '400':
+          description: Invalid input or an unknown-field body (global whitelist pipe, ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Update AI settings; the key is write-only (frozen `updateSettings`, DEV-048/DEV-015)
+      tags:
+        - ai
+  /api/v1/analytics/device-stats:
+    get:
+      operationId: AnalyticsController_deviceStats
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatsDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Device / browser / OS counts (frozen `getDeviceStats`, DEV-045)
+      tags:
+        - analytics
+  /api/v1/analytics/geographic-stats:
+    get:
+      operationId: AnalyticsController_geographicStats
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeographicStatDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Country visit counts desc (frozen `getGeographicStats`, DEV-045)
+      tags:
+        - analytics
+  /api/v1/analytics/log-article-view:
+    post:
+      description: Server-side dedup on `(articleId, visitorId)` with the frozen 24 h `viewCount` cooldown; a refresh cannot inflate. Unknown article → opaque no-op 200.
+      operationId: AnalyticsController_logArticleView
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogArticleViewDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSuccessDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+      security:
+        - {}
+        - bearerAuth: []
+      summary: Record an article view (frozen `logArticleView`, DEV-016/DEV-047)
+      tags:
+        - analytics
+  /api/v1/analytics/log-heartbeat:
+    post:
+      description: '`articles.actualReadingTime += seconds`; `articleViews.engagementTime += seconds` when the session row exists. Unknown article → opaque no-op 200.'
+      operationId: AnalyticsController_logHeartbeat
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogHeartbeatDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSuccessDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+      security:
+        - {}
+        - bearerAuth: []
+      summary: Record reading time (frozen `logHeartbeat`)
+      tags:
+        - analytics
+  /api/v1/analytics/log-page-visit:
+    post:
+      description: Anonymous or token-attributed. `ipAddress` is derived from the validated first `x-forwarded-for` hop and is never a body field; `globalStats` moves only for a public URL, atomically with the row.
+      operationId: AnalyticsController_logPageVisit
+      parameters:
+        - name: x-forwarded-for
+          required: true
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogPageVisitDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSuccessDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+      security:
+        - {}
+        - bearerAuth: []
+      summary: Record a page visit (frozen `logPageVisit`, DEV-024/DEV-030/DEV-047)
+      tags:
+        - analytics
+  /api/v1/analytics/raw-visits:
+    get:
+      description: '`type ∈ {all,visit,article,reaction}` + `days` + `search` + keyset `cursor`; invalid cursor resets to the first page. The reaction branch label is an opaque `User <first8>` handle — never a user email (DEV-034).'
+      operationId: AnalyticsController_rawVisits
+      parameters:
+        - name: type
+          required: false
+          in: query
+          schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - visit
+              - article
+              - reaction
+        - name: days
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 30
+            type: number
+        - name: search
+          required: false
+          in: query
+          schema:
+            maxLength: 200
+            type: string
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque keyset cursor; an invalid value resets to the first page.
+          schema:
+            maxLength: 512
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RawVisitsPageDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Paginated raw visits / reactions (frozen `getRawVisits`, DEV-045)
+      tags:
+        - analytics
+  /api/v1/analytics/real-time-activity:
+    get:
+      description: Latest 100 `pageVisits` within 1 h, one row per visitor. Admin PII shape (visitorId/ipAddress), frozen parity.
+      operationId: AnalyticsController_realTimeActivity
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PageVisitDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Latest unique active sessions within 1 h (frozen `getRealTimeActivity`, DEV-045)
+      tags:
+        - analytics
+  /api/v1/analytics/referrer-stats:
+    get:
+      description: Grouped by `new URL(ref).hostname`; `Direct / Bookmark` for empty, `External Link` for unparseable.
+      operationId: AnalyticsController_referrerStats
+      parameters:
+        - name: days
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 30
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReferrerStatDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Referrer hostname buckets, top 10 (frozen `getReferrerStats`, DEV-045)
+      tags:
+        - analytics
+  /api/v1/analytics/top-content:
+    get:
+      description: Published-only, sorted `uniqueViews` desc, top 10, with `avgReadTime` / `engagementRate`.
+      operationId: AnalyticsController_topContent
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TopContentDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Top published content by unique views (frozen `getTopContent`, DEV-045)
+      tags:
+        - analytics
+  /api/v1/analytics/traffic-stats:
+    get:
+      description: Zero-filled window (days clamped ≤ 90); prefers `dailyStats` with a bounded raw fallback; trend vs the previous equal window.
+      operationId: AnalyticsController_trafficStats
+      parameters:
+        - name: days
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 30
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficStatsDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity/IP selector in the body or query (DEV-030/DEV-024).
+        '401':
+          description: Present-but-invalid bearer token, or missing on an admin route (fail-closed).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Traffic series + trend (frozen `getTrafficStats`, admin-gated per DEV-045)
+      tags:
+        - analytics
+  /api/v1/articles:
+    get:
+      operationId: ArticlesController_list
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: 1-based page number.
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: pageSize
+          required: false
+          in: query
+          description: Items per page (1-100).
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+        - name: categoryId
+          required: false
+          in: query
+          description: Filter by category id.
+          schema:
+            type: string
+        - name: pillar
+          required: false
+          in: query
+          description: Filter by pillar slug.
+          schema:
+            type: string
+        - name: type
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - pillar
+              - cluster
+              - micro
+              - insight
+              - observant
+      responses:
+        '200':
+          description: 'Public projection: author name/image only, never a user document.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedArticleListItemDto'
+      security:
+        - {}
+      summary: Paginated published articles (frozen `articles.list`)
+      tags:
+        - articles
+  /api/v1/articles/admin:
+    get:
+      operationId: ArticlesController_listAdmin
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: 1-based page number.
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: pageSize
+          required: false
+          in: query
+          description: Items per page (1-100).
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+        - name: categoryId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          description: One of the statuses, or `all`.
+          schema:
+            $ref: '#/components/schemas/Object'
+        - name: source
+          required: false
+          in: query
+          description: One of the sources, or `all`.
+          schema:
+            $ref: '#/components/schemas/Object'
+        - name: search
+          required: false
+          in: query
+          description: Title full-text search (`searchVector @@ tsquery`).
+          schema:
+            type: string
+        - name: isArchived
+          required: false
+          in: query
+          description: true → archived only; false/absent → not archived (NULL counts as not archived).
+          schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedArticleDetailDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Admin article browse incl. full-text search (frozen `articles.listAdmin`, §7.1)
+      tags:
+        - articles
+  /api/v1/articles/all-tags:
+    get:
+      operationId: ArticlesController_allTags
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+      security:
+        - {}
+      summary: Sorted distinct tags (frozen `articles.getAllTags`)
+      tags:
+        - articles
+  /api/v1/articles/all-topics:
+    get:
+      operationId: ArticlesController_allTopics
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+      security:
+        - {}
+      summary: Sorted distinct topics (frozen `articles.getAllTopics`)
+      tags:
+        - articles
+  /api/v1/articles/authors:
+    get:
+      description: The frozen query returned whole admin user documents. This returns id/name/profileImage only.
+      operationId: ArticlesController_authors
+      parameters: []
+      responses:
+        '200':
+          description: Array of {id, name, profileImage}. No email/role/password/token field can appear.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorCardResponseDto'
+      security:
+        - {}
+      summary: Public author cards (frozen `articles.listAuthors`, S-014 closed in Nest)
+      tags:
+        - articles
+  /api/v1/articles/bookmarked-articles:
+    get:
+      description: Subject comes from the verified token `sub`; the frozen `email` selector is deleted (DEV-029).
+      operationId: ArticlesController_bookmarked
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArticleDetailDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+      summary: The caller’s bookmarked articles (frozen `articles.getBookmarkedArticles`)
+      tags:
+        - articles
+  /api/v1/articles/bulk-archive:
+    post:
+      operationId: ArticlesController_bulkArchive
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkArticleIdsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Archive many (frozen `articles.bulkArchive`)
+      tags:
+        - articles
+  /api/v1/articles/bulk-delete-forever:
+    post:
+      operationId: ArticlesController_bulkDeleteForever
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkArticleIdsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Hard-delete many; children cascade (frozen `articles.bulkDeleteForever`, DEV-025)
+      tags:
+        - articles
+  /api/v1/articles/bulk-restore:
+    post:
+      operationId: ArticlesController_bulkRestore
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkArticleIdsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Restore many (frozen `articles.bulkRestore`)
+      tags:
+        - articles
+  /api/v1/articles/by-author:
+    get:
+      description: 'DEV-041: the frozen public query omitted the archived filter; the port adds the NULL-safe `isArchived IS NOT TRUE` predicate so soft-deleted articles do not surface here.'
+      operationId: ArticlesController_byAuthor
+      parameters:
+        - name: authorId
+          required: true
+          in: query
+          description: Author (user) id — a content selector, never caller identity.
+          schema:
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 50
+            type: number
+      responses:
+        '200':
+          description: Non-archived published rows only (DEV-041).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArticleDetailDto'
+      security:
+        - {}
+      summary: Published, non-archived byline list for an author id (frozen `articles.getByAuthor`)
+      tags:
+        - articles
+  /api/v1/articles/by-category:
+    get:
+      operationId: ArticlesController_byCategory
+      parameters:
+        - name: categorySlug
+          required: true
+          in: query
+          description: Category slug.
+          schema:
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 100
+            type: number
+      responses:
+        '200':
+          description: Empty array for an unknown category slug (frozen semantics).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeaturedListItemDto'
+      security:
+        - {}
+      summary: Published articles in a category slug (frozen `articles.getByCategory`)
+      tags:
+        - articles
+  /api/v1/articles/by-id:
+    get:
+      description: The frozen query was public and returned drafts to anyone; its only consumer is the admin edit page (`web/app/admin/articles/[articleId]/edit/page.tsx`), so the port is admin-gated (flagged for the auditor).
+      operationId: ArticlesController_byId
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleRecordDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Not found.
+      summary: Any article by id incl. drafts (frozen `articles.getById`)
+      tags:
+        - articles
+  /api/v1/articles/by-slug:
+    get:
+      operationId: ArticlesController_bySlug
+      parameters:
+        - name: slug
+          required: true
+          in: query
+          description: Public URL segment — preserved byte-for-byte.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetailDto'
+        '404':
+          description: Not found.
+      security:
+        - {}
+      summary: Full published article by public slug (frozen `articles.getBySlug`)
+      tags:
+        - articles
+  /api/v1/articles/by-tag:
+    get:
+      operationId: ArticlesController_byTag
+      parameters:
+        - name: tag
+          required: true
+          in: query
+          schema:
+            example: habits
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagListItemDto'
+      security:
+        - {}
+      summary: Published articles carrying a tag (frozen `articles.listByTag`)
+      tags:
+        - articles
+  /api/v1/articles/create:
+    post:
+      operationId: ArticlesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateArticleDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetailDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '409':
+          description: Conflict (slug already exists).
+        '422':
+          description: Publish-time rule violated or an unresolvable reference (names the field in `details`).
+      summary: Create an article (frozen `articles.create`); author attribution = token subject
+      tags:
+        - articles
+  /api/v1/articles/delete-forever:
+    delete:
+      operationId: ArticlesController_deleteForever
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Hard-delete an article; children cascade (frozen `articles.deleteForever`, DEV-025)
+      tags:
+        - articles
+  /api/v1/articles/featured:
+    get:
+      operationId: ArticlesController_featured
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 5
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeaturedListItemDto'
+      security:
+        - {}
+      summary: Featured published articles (frozen `articles.getFeatured`)
+      tags:
+        - articles
+  /api/v1/articles/popular-topics:
+    get:
+      operationId: ArticlesController_popularTopics
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+      security:
+        - {}
+      summary: Most-used topics over the published sample (frozen `articles.getPopularTopics`)
+      tags:
+        - articles
+  /api/v1/articles/recent:
+    get:
+      operationId: ArticlesController_recent
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Items to return (hard cap 100, `articles.ts:123`).
+          schema:
+            default: 100
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecentListItemDto'
+      security:
+        - {}
+      summary: Lightweight recent list, hard cap 100 (frozen `articles.listRecent`)
+      tags:
+        - articles
+  /api/v1/articles/remove:
+    patch:
+      operationId: ArticlesController_remove
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleIdDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Archive an article — soft delete (frozen `articles.remove`)
+      tags:
+        - articles
+  /api/v1/articles/restore:
+    post:
+      operationId: ArticlesController_restore
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleIdDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Restore an archived article (frozen `articles.restore`)
+      tags:
+        - articles
+  /api/v1/articles/search:
+    get:
+      description: Weighted tokenised scoring ported verbatim from the frozen JavaScript ranker — normalisation, 83-word stopword list, additive weights, `score DESC, viewCount DESC LIMIT 8`. Deliberately not a Postgres relevance-ranked full-text search.
+      operationId: ArticlesController_search
+      parameters:
+        - name: query
+          required: false
+          in: query
+          description: Free-text query. Empty returns [].
+          schema:
+            maxLength: 200
+            type: string
+      responses:
+        '200':
+          description: Top 8 augmented results; `[]` for an empty/stopword-only query.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SearchResultDto'
+      security:
+        - {}
+      summary: Ranked search (frozen `articles.search`, DEV-008)
+      tags:
+        - articles
+  /api/v1/articles/toggle-featured:
+    patch:
+      operationId: ArticlesController_toggleFeatured
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToggleFeaturedDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Not found.
+      summary: Set the featured flag (frozen `articles.toggleFeatured`)
+      tags:
+        - articles
+  /api/v1/articles/top-post-tags:
+    get:
+      operationId: ArticlesController_topPostTags
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 5
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+      security:
+        - {}
+      summary: Tags of the two most-viewed sampled posts (frozen `articles.getTopPostTags`)
+      tags:
+        - articles
+  /api/v1/articles/update:
+    patch:
+      operationId: ArticlesController_update
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateArticleDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetailDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Not found.
+        '409':
+          description: Conflict (slug already exists).
+        '422':
+          description: Publish-time rule violated or an unresolvable reference (names the field in `details`).
+      summary: Update an article (frozen `articles.update`). Invalid category/pillar → 422 naming the field, row unchanged (DEV-011)
+      tags:
+        - articles
+  /api/v1/auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '200':
+          description: Access token plus the caller’s own projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseDto'
+      security:
+        - {}
+      summary: Verify credentials and mint a short-lived API token
+      tags:
+        - auth
+  /api/v1/auth/revoke:
+    post:
+      operationId: AuthController_revoke
+      parameters: []
+      responses:
+        '204':
+          description: ''
+      summary: Revoke the presenting token (jti deny-list)
+      tags:
+        - auth
+  /api/v1/categories/all:
+    get:
+      operationId: CategoriesController_all
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryListItemDto'
+      security:
+        - {}
+      summary: All categories with pillarCount (frozen `categories.listAll`)
+      tags:
+        - categories
+  /api/v1/categories/by-id:
+    get:
+      operationId: CategoriesController_byId
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponseDto'
+        '404':
+          description: Category not found.
+      security:
+        - {}
+      summary: Category by id (frozen `categories.getById`)
+      tags:
+        - categories
+  /api/v1/categories/by-slug:
+    get:
+      operationId: CategoriesController_bySlug
+      parameters:
+        - name: slug
+          required: true
+          in: query
+          schema:
+            example: psychology
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponseDto'
+        '404':
+          description: Category not found.
+      security:
+        - {}
+      summary: Category by public slug (frozen `categories.getBySlug`)
+      tags:
+        - categories
+  /api/v1/categories/create:
+    post:
+      operationId: CategoriesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '409':
+          description: Slug conflict, or the category still has linked articles (frozen delete guard).
+      summary: Create a category (frozen `categories.create`, now admin-only)
+      tags:
+        - categories
+  /api/v1/categories/remove:
+    patch:
+      description: 'The frozen linked-article delete guard is preserved: 409 while articles reference the category.'
+      operationId: CategoriesController_remove
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Category not found.
+        '409':
+          description: Slug conflict, or the category still has linked articles (frozen delete guard).
+      summary: Delete a category (frozen `categories.remove`, now admin-only)
+      tags:
+        - categories
+  /api/v1/categories/update:
+    patch:
+      operationId: CategoriesController_update
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Category not found.
+        '409':
+          description: Slug conflict, or the category still has linked articles (frozen delete guard).
+      summary: Update a category (frozen `categories.update`, now admin-only)
+      tags:
+        - categories
+  /api/v1/email-queue/request-password-reset:
+    post:
+      description: 'Public and neutral: a known and an unknown address return the identical `{success:true}` (no enumeration). The token is CSPRNG and stored server-side; it never appears in the response or a log.'
+      operationId: EmailQueueController_requestPasswordReset
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestPasswordResetDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetNeutralDto'
+        '400':
+          description: Invalid input or an unknown-field body.
+      security:
+        - {}
+      summary: Request a password reset (frozen `requestPasswordReset`, DEV-036/DEV-033)
+      tags:
+        - email-queue
+  /api/v1/email-queue/send-test-email:
+    post:
+      description: Admin only. A failure returns a generic message with no SMTP internals or stack (Hard Rule 4).
+      operationId: EmailQueueController_sendTestEmail
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTestEmailDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendTestEmailResultDto'
+        '400':
+          description: Invalid input or an unknown-field body.
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Send a test email (frozen `sendTestEmail`)
+      tags:
+        - email-queue
+  /api/v1/emails/add-to-queue:
+    patch:
+      description: '`templateData` is validated per template; an unknown template, unknown key, or non-string value is a 400.'
+      operationId: EmailsController_addToQueue
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToQueueDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuedEmailDto'
+        '400':
+          description: Invalid input, or an unknown template/key in `templateData` (ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Enqueue an email (frozen `addToQueue`, DEV-006)
+      tags:
+        - emails
+  /api/v1/emails/delete-email:
+    delete:
+      operationId: EmailsController_deleteEmail
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSuccessDto'
+        '400':
+          description: Invalid input, or an unknown template/key in `templateData` (ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Delete a queue row by id, idempotent (frozen `deleteEmail`)
+      tags:
+        - emails
+  /api/v1/emails/email-by-id:
+    get:
+      operationId: EmailsController_getEmailById
+      parameters:
+        - name: id
+          required: true
+          in: query
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailLogDto'
+        '400':
+          description: Invalid input, or an unknown template/key in `templateData` (ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: No queue row with that id.
+      summary: One queue row by id, token fields redacted (frozen `getEmailById`)
+      tags:
+        - emails
+  /api/v1/emails/email-logs:
+    get:
+      operationId: EmailsController_getEmailLogs
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 50
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailLogDto'
+        '400':
+          description: Invalid input, or an unknown template/key in `templateData` (ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Recent queue rows, newest first, token fields redacted (frozen `getEmailLogs`)
+      tags:
+        - emails
+  /api/v1/emails/retry-email:
+    patch:
+      operationId: EmailsController_retryEmail
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailIdDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSuccessDto'
+        '400':
+          description: Invalid input, or an unknown template/key in `templateData` (ADR-010).
+        '401':
+          description: Missing or invalid bearer token (default-deny).
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: No queue row with that id.
+      summary: Reset a failed email to pending (frozen `retryEmail`)
+      tags:
+        - emails
+  /api/v1/engagement/add-comment:
+    patch:
+      description: Commenter = token `sub`; content non-empty/bounded (422); optional `parentId` must resolve to a comment on the same article (422, DEV-043). Increments `globalStats.commentsCount` in the same `$transaction` (DEV-022) and queues the frozen `comment_alert` email row.
+      operationId: EngagementController_addComment
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCommentDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentCreatedDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '404':
+          description: Referenced article or comment not found.
+        '422':
+          description: Validation rule violated (names the field or `parentId` in `details`).
+      summary: Add a comment as the caller (frozen `addComment`)
+      tags:
+        - engagement
+  /api/v1/engagement/all-comments:
+    get:
+      description: Adds `articleTitle`/`articleSlug`; still no user secret.
+      operationId: EngagementController_listAllComments
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminCommentDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Moderation view of all comments (frozen `listAllComments`, admin-gated per DEV-042)
+      tags:
+        - engagement
+  /api/v1/engagement/comments:
+    get:
+      description: Approved only, `createdAt DESC`, capped; each item carries the public author card (`authorName`/`authorImage`) — never a user document (DEV-034).
+      operationId: EngagementController_listComments
+      parameters:
+        - name: articleId
+          required: true
+          in: query
+          description: Article id (uuid).
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+      security:
+        - {}
+      summary: Approved comments for an article (frozen `listComments`)
+      tags:
+        - engagement
+  /api/v1/engagement/delete-comment:
+    delete:
+      description: Decrements `globalStats.commentsCount` by the exact removed subtree in the same `$transaction`; leaves 0 orphaned replies (DEV-043).
+      operationId: EngagementController_deleteComment
+      parameters:
+        - name: id
+          required: true
+          in: query
+          description: Comment id (uuid).
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngagementSuccessDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Delete a comment; replies cascade (frozen `deleteComment`, admin-gated per DEV-042)
+      tags:
+        - engagement
+  /api/v1/engagement/engagement:
+    get:
+      description: Exactly 8 keys. Counts are public; `userReaction`/`isBookmarked` come from the verified token `sub` when present, else `null`/`false`. A present-but-invalid/expired/revoked token is a 401 — never a silent anonymous downgrade.
+      operationId: EngagementController_getEngagement
+      parameters:
+        - name: articleId
+          required: true
+          in: query
+          description: Article id (uuid).
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: The exact frozen 8-key shape.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngagementDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      security:
+        - {}
+        - bearerAuth: []
+      summary: Aggregate engagement counts + the caller’s own state (frozen `getEngagement`, DEV-044)
+      tags:
+        - engagement
+  /api/v1/engagement/toggle-bookmark:
+    patch:
+      description: Returns the frozen boolean (`true` = now bookmarked). Shared `bookmarks` table + `(userId, articleId)` key with `GET /articles/bookmarked-articles`.
+      operationId: EngagementController_toggleBookmark
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToggleBookmarkDto'
+      responses:
+        '200':
+          description: true = now bookmarked; false = removed.
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '404':
+          description: Referenced article or comment not found.
+      summary: Toggle the caller’s bookmark (frozen `toggleBookmark`)
+      tags:
+        - engagement
+  /api/v1/engagement/toggle-reaction:
+    patch:
+      description: None → insert, same type → delete, different type → patch. `articles.reactionsCount` stays in step in the same `$transaction` (DEV-021).
+      operationId: EngagementController_toggleReaction
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToggleReactionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReactionToggleDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '404':
+          description: Referenced article or comment not found.
+      summary: Toggle the caller’s reaction (frozen `toggleReaction`)
+      tags:
+        - engagement
+  /api/v1/engagement/update-comment-status:
+    patch:
+      description: '`pendingCommentsCount` delta applied in the same `$transaction` only when the status actually changes (DEV-022).'
+      operationId: EngagementController_updateCommentStatus
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentStatusDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngagementSuccessDto'
+        '400':
+          description: Invalid input, or a deleted caller-supplied identity selector in the body or query (DEV-029).
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Referenced article or comment not found.
+      summary: Set a comment status (frozen `updateCommentStatus`, admin-gated per DEV-042)
+      tags:
+        - engagement
+  /api/v1/internal/admin/admin-dedupe-articles:
+    post:
+      description: 'Worker-only, transaction-scoped advisory lock; repoints views/reactions/comments/bookmarks then deletes losers in one $transaction (DEV-025 class). Idempotent: a second run is a no-op.'
+      operationId: InternalAdminController_dedupe
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DedupeResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret` (Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Collapse duplicate-slug published articles (frozen `admin.adminDedupeArticles`)
+      tags:
+        - internal-admin
+  /api/v1/internal/ai-drafts/{id}:
+    put:
+      operationId: InternalAiDraftsController_saveAIDraft
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAIDraftDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiDraftResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret` (AGENTS.md Hard Rule 6, timing-safe compare).
+        '422':
+          description: No category exists to attach the draft to, or an unresolvable pillar (names the field).
+      security:
+        - internalJobSecret: []
+      summary: Store an AI draft (frozen `articles.saveAIDraft`), idempotent on the path key
+      tags:
+        - internal-ai-drafts
+  /api/v1/internal/ai/process-schedule-check:
+    post:
+      description: Bails when settings are inactive/keyless or nothing is due. A failure on one topic does not abort the batch; the run status is surfaced.
+      operationId: InternalAiController_processScheduleCheck
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessScheduleResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Run due AI schedules (frozen `processScheduleCheck`, DEV-049)
+      tags:
+        - internal-ai
+  /api/v1/internal/analytics/purge:
+    post:
+      description: Bounded batch of 500. Never touches `dailyStats` or `totalViews` (DEV-022).
+      operationId: InternalAnalyticsController_purge
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Purge pageVisits older than 90 days (frozen `purgeOldAnalytics`)
+      tags:
+        - internal-analytics
+  /api/v1/internal/analytics/rollup-daily:
+    post:
+      description: Resumes from the `lastRollup` watermark (default 90 d back); idempotent on re-run.
+      operationId: InternalAnalyticsController_rollup
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollupResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Fold pageVisits into dailyStats (frozen `rollupDailyStats`)
+      tags:
+        - internal-analytics
+  /api/v1/internal/articles/publish-scheduled:
+    post:
+      description: 'Idempotent: a re-run finds nothing due and publishes nothing.'
+      operationId: InternalArticlesController_publishScheduled
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishScheduledResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret` (AGENTS.md Hard Rule 6, timing-safe compare).
+      security:
+        - internalJobSecret: []
+      summary: Publish due scheduled articles (frozen `articles.publishScheduledArticles`)
+      tags:
+        - internal-articles
+  /api/v1/internal/articles/queue-alerts:
+    post:
+      description: 'Queues only — the Phase 08 worker sends. Idempotent: a second call inserts no duplicate queue rows.'
+      operationId: InternalArticlesController_queueAlerts
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueAlertsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueAlertsResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret` (AGENTS.md Hard Rule 6, timing-safe compare).
+      security:
+        - internalJobSecret: []
+      summary: Queue new-article emails for subscribers (frozen `articles.queueNewArticleAlerts`)
+      tags:
+        - internal-articles
+  /api/v1/internal/email-queue/process:
+    post:
+      description: sending → sent; failure retries < 3 → pending else failed; the run status is surfaced. Cron scheduling is Phase 09.
+      operationId: InternalEmailsController_processQueue
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessQueueDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessQueueResultDto'
+        '400':
+          description: 'Invalid input: malformed, empty, or unknown-field body (global whitelist pipe).'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Drain due pending email rows (frozen `processQueue`, DEV-050)
+      tags:
+        - internal-emails
+  /api/v1/internal/emails:
+    get:
+      operationId: InternalEmailsController_getPendingEmails
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            default: pending
+            type: string
+            enum:
+              - pending
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 200
+            default: 50
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingEmailDto'
+        '400':
+          description: 'Invalid input: malformed, empty, or unknown-field body (global whitelist pipe).'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Due pending queue rows, bounded (frozen `getPendingEmails`, consumer view)
+      tags:
+        - internal-emails
+  /api/v1/internal/emails/weekly-digest:
+    post:
+      description: Top-3 by views in the last 7 days; the unsubscribe URL carries a signed single-use token, never a bare email.
+      operationId: InternalEmailsController_generateWeeklyNewsletter
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyDigestResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Queue the weekly digest for subscribers (frozen `generateWeeklyNewsletter`, DEV-035)
+      tags:
+        - internal-emails
+  /api/v1/internal/emails/{id}/status:
+    patch:
+      operationId: InternalEmailsController_updateEmailStatus
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmailStatusDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSuccessDto'
+        '400':
+          description: 'Invalid input: malformed, empty, or unknown-field body (global whitelist pipe).'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+        '404':
+          description: No queue row with that id (the read no-ops).
+      security:
+        - internalJobSecret: []
+      summary: Update a queue row status, `retries` atomic (frozen `updateEmailStatus`)
+      tags:
+        - internal-emails
+  /api/v1/internal/migrations/backfill-is-archived:
+    post:
+      description: One-shot idempotent maintenance; internal/CLI only — the public path is gone (404).
+      operationId: InternalAnalyticsController_backfill
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackfillResultDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Backfill isArchived where NULL (frozen `backfillIsArchived`, DEV-046)
+      tags:
+        - internal-analytics
+  /api/v1/internal/stats/increment:
+    post:
+      description: Maps the frozen `update` keys to columns; each is an atomic SQL increment. No-op 200 when the singleton row is absent.
+      operationId: InternalAnalyticsController_increment
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncrementStatsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncrementStatsResultDto'
+        '400':
+          description: 'Invalid input: malformed, empty, or unknown-field body (global whitelist pipe).'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Apply signed deltas to globalStats (frozen `incrementStats`, DEV-022)
+      tags:
+        - internal-analytics
+  /api/v1/internal/stats/recompute:
+    post:
+      description: Atomic, idempotent recompute in one `$transaction`; restores the Phase-02 baseline (`totalViews = sum(dailyStats.visits)`).
+      operationId: InternalAnalyticsController_recompute
+      parameters:
+        - name: x-internal-secret
+          in: header
+          description: INTERNAL_JOB_SECRET
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecomputeStatsDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret`, or `INTERNAL_JOB_SECRET` unset (fail-closed, Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Recompute globalStats + Category.articleCount (frozen `initGlobalStats`, DEV-022)
+      tags:
+        - internal-analytics
+  /api/v1/internal/users/reset-token:
+    post:
+      operationId: InternalUsersController_mintResetToken
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MintResetTokenDto'
+      responses:
+        '200':
+          description: Omitted entirely (empty body, 200) when no account holds that address — the mint is not an existence oracle.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetTokenResponseDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret` (Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Mint a password-reset token (internal secret)
+      tags:
+        - internal-users
+  /api/v1/internal/users/store:
+    post:
+      operationId: InternalUsersController_store
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreUserDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredUserResponseDto'
+        '401':
+          description: Missing or incorrect `x-internal-secret` (Hard Rule 6).
+      security:
+        - internalJobSecret: []
+      summary: Google sign-in upsert (internal secret)
+      tags:
+        - internal-users
+  /api/v1/otp/generate-otp:
+    post:
+      description: Always returns the same neutral body, whether or not the address exists and whether or not the resend cooldown is in effect (R3/R5).
+      operationId: OtpController_generateOtp
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateOtpDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpSendResultDto'
+      security:
+        - {}
+      summary: Request a one-time password for an address.
+      tags:
+        - otp
+  /api/v1/otp/verify-otp:
+    patch:
+      description: One identical failure body on every path (R4). Charges an attempt on failure, consumes the code on success (R1/R7).
+      operationId: OtpController_verifyOtp
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResultDto'
+      security:
+        - {}
+      summary: Verify a one-time password.
+      tags:
+        - otp
+  /api/v1/otp/verify-otp-and-change-password:
+    patch:
+      description: The new password is plaintext and hashed server-side (R10); a pre-hashed value is refused. Consume + password write are one transaction (R7).
+      operationId: OtpController_verifyOtpAndChangePassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpAndChangePasswordDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResultDto'
+      security:
+        - {}
+      summary: Verify a one-time password and set a new password.
+      tags:
+        - otp
+  /api/v1/pillars/all:
+    get:
+      operationId: PillarsController_all
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PillarListItemDto'
+      security:
+        - {}
+      summary: All pillars with category name/slug (frozen `pillars.listAll`)
+      tags:
+        - pillars
+  /api/v1/pillars/by-category:
+    get:
+      operationId: PillarsController_byCategory
+      parameters:
+        - name: categoryId
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PillarResponseDto'
+      security:
+        - {}
+      summary: Pillars of a category, creation order (frozen `pillars.listByCategory`)
+      tags:
+        - pillars
+  /api/v1/pillars/by-slug:
+    get:
+      operationId: PillarsController_bySlug
+      parameters:
+        - name: slug
+          required: true
+          in: query
+          schema:
+            example: dark-psychology
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PillarResponseDto'
+        '404':
+          description: Pillar not found.
+      security:
+        - {}
+      summary: Pillar by public slug (frozen `pillars.getBySlug`)
+      tags:
+        - pillars
+  /api/v1/pillars/create:
+    post:
+      operationId: PillarsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePillarDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PillarResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '409':
+          description: Duplicate slug, or articles are still linked (frozen delete guard).
+        '422':
+          description: '`categoryId` does not reference an existing category (names the field).'
+      summary: Create a pillar (frozen `pillars.create`, now admin-only)
+      tags:
+        - pillars
+  /api/v1/pillars/remove:
+    patch:
+      description: 'The frozen linked-article delete guard is preserved: 409 while articles reference the pillar slug.'
+      operationId: PillarsController_remove
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemovePillarDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Pillar not found.
+        '409':
+          description: Duplicate slug, or articles are still linked (frozen delete guard).
+      summary: Delete a pillar (frozen `pillars.remove`, now admin-only)
+      tags:
+        - pillars
+  /api/v1/pillars/update:
+    patch:
+      operationId: PillarsController_update
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePillarDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PillarResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Pillar not found.
+        '409':
+          description: Duplicate slug, or articles are still linked (frozen delete guard).
+        '422':
+          description: '`categoryId` does not reference an existing category (names the field).'
+      summary: Update a pillar (frozen `pillars.update`, now admin-only)
+      tags:
+        - pillars
+  /api/v1/quotes/add:
+    patch:
+      operationId: QuotesController_add
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddQuoteDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Add a quote (frozen `quotes.add`, now admin-only)
+      tags:
+        - quotes
+  /api/v1/quotes/all:
+    get:
+      operationId: QuotesController_all
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuoteResponseDto'
+      security:
+        - {}
+      summary: All quotes, newest first (frozen `quotes.listAll`)
+      tags:
+        - quotes
+  /api/v1/quotes/random:
+    get:
+      operationId: QuotesController_random
+      parameters:
+        - name: category
+          required: false
+          in: query
+          description: Restrict the pool to one quote category.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A uniformly random quote; a null body when the pool is empty (frozen semantics).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/QuoteResponseDto'
+                  - type: 'null'
+      security:
+        - {}
+      summary: A random quote (frozen `quotes.getRandom`); null body when the pool is empty
+      tags:
+        - quotes
+  /api/v1/quotes/remove:
+    patch:
+      operationId: QuotesController_remove
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveQuoteDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+        '404':
+          description: Quote not found.
+      summary: Delete a quote (frozen `quotes.remove`, now admin-only)
+      tags:
+        - quotes
+  /api/v1/site-settings/site-settings:
+    get:
+      operationId: SiteSettingsController_getSiteSettings
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettingsResponseDto'
+      security:
+        - {}
+      summary: Public site settings with frozen defaults (`site_settings.getSiteSettings`)
+      tags:
+        - site-settings
+  /api/v1/site-settings/update-site-settings:
+    patch:
+      operationId: SiteSettingsController_updateSiteSettings
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSiteSettingsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettingsResponseDto'
+        '401':
+          description: Missing, invalid, or revoked bearer token.
+        '403':
+          description: The caller is not an admin (DB-resolved role).
+      summary: Upsert the site settings singleton (frozen `updateSiteSettings`, admin-gated — S-012 closed)
+      tags:
+        - site-settings
+  /api/v1/stream:
+    get:
+      description: Consumes the ticket via its own guard; topics come from the ticket, never the query string. Frames are the narrow `{v,type,ts,data}` envelope, coalesced per topic per connection. Missing/unknown/spent ticket → 403 `TICKET_INVALID`; expired → 403 `TICKET_EXPIRED`, both before the stream opens.
+      operationId: StreamController_open
+      parameters:
+        - name: ticket
+          required: true
+          in: query
+          description: Single-use, 30 s SSE ticket (send as a URL credential; never logged).
+          schema:
+            format: password
+            type: string
+      responses:
+        '200':
+          description: An open `text/event-stream`.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Missing or empty `ticket` query parameter.
+        '403':
+          description: '`TOPIC_FORBIDDEN` at issuance, or `TICKET_INVALID` / `TICKET_EXPIRED` on the stream.'
+      security:
+        - {}
+      summary: Open the event stream (DEV-007/DEV-055)
+      tags:
+        - stream
+  /api/v1/stream/tickets:
+    post:
+      description: 'Token-optional and fail-closed: an anonymous caller may request public topics only; `admin:*` / `analytics:realtime` require the DB-resolved admin role and are refused with 403 `TOPIC_FORBIDDEN` at issuance. The 256-bit ticket is stored as a SHA-256 digest with a 30 s TTL and is single-use.'
+      operationId: StreamController_issue
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketDto'
+      responses:
+        '201':
+          description: The raw ticket, returned exactly once.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketResponseDto'
+        '400':
+          description: Malformed, unknown, empty, or over-cap topic set (global whitelist + issuance validation).
+        '401':
+          description: A present-but-invalid bearer token at issuance (fail-closed, DEV-044).
+        '403':
+          description: '`TOPIC_FORBIDDEN` at issuance, or `TICKET_INVALID` / `TICKET_EXPIRED` on the stream.'
+      security:
+        - {}
+        - bearerAuth: []
+      summary: Mint a single-use SSE ticket (DEV-054)
+      tags:
+        - stream
+  /api/v1/users/me:
+    get:
+      operationId: UsersController_getMe
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelfUserResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      summary: The caller’s own projected profile
+      tags:
+        - users
+    patch:
+      operationId: UsersController_updateMe
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelfUserResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      summary: Update the caller’s own profile
+      tags:
+        - users
+    delete:
+      operationId: UsersController_deleteMe
+      parameters: []
+      responses:
+        '204':
+          description: Deleted. No body, by HTTP semantics for 204.
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      summary: Delete the caller’s own account
+      tags:
+        - users
+  /api/v1/users/me/full:
+    get:
+      operationId: UsersController_getMeFull
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelfUserFullResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      summary: The caller’s profile plus engagement counts
+      tags:
+        - users
+  /api/v1/users/me/tours:
+    post:
+      operationId: UsersController_completeTour
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTourDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TourCompletedResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      summary: Record a completed tour for the caller
+      tags:
+        - users
+  /api/v1/users/newsletter/confirm:
+    post:
+      operationId: UsersController_confirm
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmNewsletterDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      security:
+        - {}
+      summary: Confirm a newsletter subscription
+      tags:
+        - users
+  /api/v1/users/newsletter/subscribe:
+    post:
+      operationId: UsersController_subscribe
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscribeNewsletterDto'
+      responses:
+        '200':
+          description: The double-opt-in token is minted for the email worker and never returned over HTTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscribeStatusResponseDto'
+      security:
+        - {}
+      summary: Subscribe to the newsletter (double opt-in)
+      tags:
+        - users
+  /api/v1/users/newsletter/unsubscribe:
+    post:
+      operationId: UsersController_unsubscribe
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsubscribeDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      security:
+        - {}
+      summary: Unsubscribe via a signed single-use token
+      tags:
+        - users
+  /api/v1/users/password/reset:
+    post:
+      operationId: UsersController_resetPassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponseDto'
+        '401':
+          description: Missing, invalid, expired, or revoked bearer token.
+      security:
+        - {}
+      summary: Consume a reset token and set a new password
+      tags:
+        - users
+  /api/v1/users/register:
+    post:
+      operationId: UsersController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        '200':
+          description: Deliberately identical whether or not the address was already taken.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponseDto'
+      security:
+        - {}
+      summary: Register a new account (neutral response)
+      tags:
+        - users
+  /api/v1/users/{id}:
+    get:
+      operationId: UsersController_getUserById
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: id/name/profileImage only — no email, no role, no token field can appear (DEV-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAuthorCardResponseDto'
+        '404':
+          description: Not found.
+      security:
+        - {}
+      summary: Public author card for /author/[id]
+      tags:
+        - users
+info:
+  title: The Truth Pill API
+  description: Public REST + SSE API for The Truth Pill. Generated from NestJS decorators — never hand-edited (ADR-009).
+  version: '1.0'
+  contact: {}
+tags: []
+servers:
+  - url: /
+components:
+  securitySchemes:
+    bearerAuth:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+      description: 'ADR-017 purpose-issued API token, HS256, `aud: truth-pill-api`, TTL 300 s. Sent as `Authorization: Bearer <token>`, minted server-side only. A token in a query string or body is ignored.'
+    internalJobSecret:
+      type: apiKey
+      in: header
+      name: x-internal-secret
+      description: '`INTERNAL_JOB_SECRET` on `/internal/*`, compared timing-safely. Worker/cron only; fails closed when unset (Hard Rule 6).'
+  schemas:
+    ActivityItemDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+          nullable: true
+        content:
+          type: string
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum:
+            - comment
+            - signup
+            - article
+        userId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - type
+        - content
+        - timestamp
+    AddCommentDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          description: Comment body — non-empty, at most 5000 characters (validated in the service as 422).
+        parentId:
+          type: string
+          format: uuid
+          description: Parent comment id — must resolve to a comment on the same article (422 otherwise, DEV-043).
+      required:
+        - articleId
+        - content
+    AddQuoteDto:
+      type: object
+      properties:
+        author:
+          type: string
+          maxLength: 255
+        category:
+          type: string
+          maxLength: 255
+        text:
+          type: string
+          maxLength: 5000
+      required:
+        - text
+        - author
+    AddResearchTopicDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        topic:
+          type: string
+          maxLength: 500
+      required:
+        - topic
+    AddToQueueDto:
+      type: object
+      properties:
+        recipient:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+        scheduledFor:
+          type: number
+          description: Epoch-ms send time; defaults to now.
+        subject:
+          type: string
+          maxLength: 500
+        templateData:
+          type: object
+          additionalProperties: true
+          description: Per-template data. Unknown keys or a non-string value → 400 (ADR-010, not `v.any()`).
+        templateName:
+          type: string
+          maxLength: 100
+          description: A known template name (unknown → 400).
+      required:
+        - recipient
+        - subject
+        - templateName
+        - templateData
+    AdminCommentDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+        articleSlug:
+          type: string
+          nullable: true
+        articleTitle:
+          type: string
+          description: Frozen fallback "Deleted Article" (`engagement.ts:241`).
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+          description: Frozen fallback "Unknown" (`engagement.ts:222`).
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - spam
+            - removed
+        userId:
+          type: string
+          description: Bare user UUID reference — not caller identity, not a selector.
+      required:
+        - id
+        - articleId
+        - userId
+        - parentId
+        - content
+        - status
+        - createdAt
+        - authorName
+        - authorImage
+        - articleTitle
+        - articleSlug
+    AdminUserProjectionDto:
+      type: object
+      properties:
+        completedTours:
+          description: Tour ids already completed.
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        email:
+          type: string
+        emailConfirmed:
+          type: boolean
+          nullable: true
+          description: NULL when no confirmation has been attempted.
+        id:
+          type: string
+        name:
+          type: string
+        newsletterSubscribed:
+          type: boolean
+        profileImage:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          description: Account origin, e.g. `credentials` or `google`.
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+          description: DB-resolved, never a token claim (DEV-032).
+      required:
+        - id
+        - name
+        - email
+        - profileImage
+        - provider
+        - role
+        - newsletterSubscribed
+        - emailConfirmed
+        - completedTours
+        - createdAt
+    AdsSettingsResponseDto:
+      type: object
+      properties:
+        adsEnabled:
+          type: boolean
+        adsenseAdUnitCode:
+          type: string
+        adsenseScriptCode:
+          type: string
+          description: Admin-supplied script body. Stored as data; never executed server-side.
+        showAdBottomOfArticle:
+          type: boolean
+        showAdMiddleOfArticle:
+          type: boolean
+        showAdSidebar:
+          type: boolean
+        showAdTopOfArticle:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - adsEnabled
+        - adsenseScriptCode
+        - adsenseAdUnitCode
+        - showAdTopOfArticle
+        - showAdMiddleOfArticle
+        - showAdBottomOfArticle
+        - showAdSidebar
+        - updatedAt
+    AiDraftResultDto:
+      type: object
+      properties:
+        created:
+          type: boolean
+          description: false when the key was already stored (replay returned the existing draft).
+        id:
+          type: string
+      required:
+        - id
+        - created
+    AiSettingsDto:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          nullable: true
+          format: date-time
+        hasApiKey:
+          type: boolean
+          description: True iff a non-empty provider key is stored. The key itself is never returned (DEV-048).
+        id:
+          type: string
+        isActive:
+          type: boolean
+        isWriting:
+          type: string
+          nullable: true
+          format: date-time
+        lastTested:
+          type: string
+          nullable: true
+          format: date-time
+        model:
+          type: string
+        promptTemplate:
+          type: string
+          nullable: true
+        provider:
+          type: string
+        testStatus:
+          type: string
+          nullable: true
+          enum:
+            - success
+            - failed
+      required:
+        - id
+        - provider
+        - model
+        - promptTemplate
+        - isActive
+        - lastTested
+        - testStatus
+        - isWriting
+        - createdAt
+        - hasApiKey
+    AiSuccessDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    AnalyticsSuccessDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    ArticleCountersDto:
+      type: object
+      properties:
+        aiDrafts:
+          type: number
+        draft:
+          type: number
+        published:
+          type: number
+        scheduled:
+          type: number
+        total:
+          type: number
+      required:
+        - total
+        - published
+        - draft
+        - scheduled
+        - aiDrafts
+    ArticleDetailDto:
+      type: object
+      properties:
+        actualReadingTime:
+          type: number
+          nullable: true
+        authorId:
+          type: string
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+          description: Resolved byline name; "Unknown Author" when absent.
+        categoryId:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+        categorySlug:
+          type: string
+          nullable: true
+        content:
+          type: string
+          nullable: true
+        coverImage:
+          type: string
+          nullable: true
+        coverImageAlt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        excerpt:
+          type: string
+          nullable: true
+        focusKeyword:
+          type: string
+          nullable: true
+        id:
+          type: string
+        isArchived:
+          type: boolean
+          nullable: true
+          description: NULL counts as not archived (§7.1).
+        isFeatured:
+          type: boolean
+          nullable: true
+        metaDescription:
+          type: string
+          nullable: true
+        metaTitle:
+          type: string
+          nullable: true
+        pillar:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reactionsCount:
+          type: number
+          nullable: true
+        readingTime:
+          type: number
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved.
+        source:
+          type: string
+          enum:
+            - human
+            - ai
+        status:
+          type: string
+          enum:
+            - draft
+            - scheduled
+            - published
+        tags:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          enum:
+            - pillar
+            - cluster
+            - micro
+            - insight
+            - observant
+          nullable: true
+        uniqueViewCount:
+          type: number
+        updatedAt:
+          type: string
+          format: date-time
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - content
+        - coverImage
+        - coverImageAlt
+        - authorId
+        - categoryId
+        - pillar
+        - topics
+        - tags
+        - type
+        - status
+        - source
+        - scheduledFor
+        - publishedAt
+        - viewCount
+        - uniqueViewCount
+        - reactionsCount
+        - readingTime
+        - actualReadingTime
+        - metaTitle
+        - metaDescription
+        - focusKeyword
+        - createdAt
+        - updatedAt
+        - isFeatured
+        - isArchived
+        - authorName
+        - authorImage
+        - categoryName
+        - categorySlug
+    ArticleIdDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    ArticleListItemDto:
+      type: object
+      properties:
+        authorId:
+          type: string
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+        categoryId:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+        coverImage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        excerpt:
+          type: string
+          nullable: true
+        id:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+        title:
+          type: string
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - coverImage
+        - publishedAt
+        - createdAt
+        - viewCount
+        - authorId
+        - categoryId
+        - authorName
+        - authorImage
+        - categoryName
+    ArticleRecordDto:
+      type: object
+      properties:
+        actualReadingTime:
+          type: number
+          nullable: true
+        authorId:
+          type: string
+        categoryId:
+          type: string
+          nullable: true
+        content:
+          type: string
+          nullable: true
+        coverImage:
+          type: string
+          nullable: true
+        coverImageAlt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        excerpt:
+          type: string
+          nullable: true
+        focusKeyword:
+          type: string
+          nullable: true
+        id:
+          type: string
+        isArchived:
+          type: boolean
+          nullable: true
+          description: NULL counts as not archived (§7.1).
+        isFeatured:
+          type: boolean
+          nullable: true
+        metaDescription:
+          type: string
+          nullable: true
+        metaTitle:
+          type: string
+          nullable: true
+        pillar:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reactionsCount:
+          type: number
+          nullable: true
+        readingTime:
+          type: number
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved.
+        source:
+          type: string
+          enum:
+            - human
+            - ai
+        status:
+          type: string
+          enum:
+            - draft
+            - scheduled
+            - published
+        tags:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          enum:
+            - pillar
+            - cluster
+            - micro
+            - insight
+            - observant
+          nullable: true
+        uniqueViewCount:
+          type: number
+        updatedAt:
+          type: string
+          format: date-time
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - content
+        - coverImage
+        - coverImageAlt
+        - authorId
+        - categoryId
+        - pillar
+        - topics
+        - tags
+        - type
+        - status
+        - source
+        - scheduledFor
+        - publishedAt
+        - viewCount
+        - uniqueViewCount
+        - reactionsCount
+        - readingTime
+        - actualReadingTime
+        - metaTitle
+        - metaDescription
+        - focusKeyword
+        - createdAt
+        - updatedAt
+        - isFeatured
+        - isArchived
+    AuthorCardResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        profileImage:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - profileImage
+    BackfillResultDto:
+      type: object
+      properties:
+        total:
+          type: number
+        updated:
+          type: number
+      required:
+        - updated
+        - total
+    BulkArticleIdsDto:
+      type: object
+      properties:
+        ids:
+          description: Article ids. Non-existent / already-in-state ids are skipped (frozen semantics).
+          type: array
+          items:
+            type: string
+      required:
+        - ids
+    CategoryListItemDto:
+      type: object
+      properties:
+        articleCount:
+          type: number
+        coverImage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+          nullable: true
+        id:
+          type: string
+        name:
+          type: string
+        pexelsImages:
+          description: Stored image URLs; no vendor call is made here.
+          type: array
+          items:
+            type: string
+        pillarCount:
+          type: number
+          description: Pillars attached to this category.
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved.
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - coverImage
+        - pexelsImages
+        - articleCount
+        - createdAt
+        - pillarCount
+    CategoryResponseDto:
+      type: object
+      properties:
+        articleCount:
+          type: number
+        coverImage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+          nullable: true
+        id:
+          type: string
+        name:
+          type: string
+        pexelsImages:
+          description: Stored image URLs; no vendor call is made here.
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved.
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - coverImage
+        - pexelsImages
+        - articleCount
+        - createdAt
+    ClearTopicsResultDto:
+      type: object
+      properties:
+        deleted:
+          type: number
+        success:
+          type: boolean
+      required:
+        - success
+        - deleted
+    CommentCreatedDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    CommentDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+          description: Frozen fallback "Unknown" (`engagement.ts:222`).
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - spam
+            - removed
+        userId:
+          type: string
+          description: Bare user UUID reference — not caller identity, not a selector.
+      required:
+        - id
+        - articleId
+        - userId
+        - parentId
+        - content
+        - status
+        - createdAt
+        - authorName
+        - authorImage
+    CompleteTourDto:
+      type: object
+      properties:
+        tourId:
+          type: string
+          example: welcome-tour
+      required:
+        - tourId
+    ConfirmNewsletterDto:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Signed, expiring, single-use confirmation token.
+      required:
+        - token
+    ConnectionResultDto:
+      type: object
+      properties:
+        message:
+          type: string
+        success:
+          type: boolean
+      required:
+        - success
+        - message
+    CreateArticleDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        content:
+          type: string
+          description: Rich text (HTML).
+        coverImage:
+          type: string
+          description: Stored image URL — no vendor call is made here.
+        coverImageAlt:
+          type: string
+          description: Stored image alt text.
+        excerpt:
+          type: string
+        focusKeyword:
+          type: string
+        isFeatured:
+          type: boolean
+        metaDescription:
+          type: string
+          description: Publish rule enforces ≤ 255 characters.
+        metaTitle:
+          type: string
+        pillar:
+          type: string
+          description: Pillar slug. Must reference an existing pillar (422 otherwise, DEV-023 FK class).
+        scheduledFor:
+          type: string
+          description: ISO-8601 timestamp (Convex carried epoch millis).
+        slug:
+          type: string
+          description: Public URL segment. Slug drift 404s live URLs — treated as immutable once published.
+        source:
+          type: string
+          enum:
+            - human
+            - ai
+        status:
+          type: string
+          enum:
+            - draft
+            - scheduled
+            - published
+        tags:
+          description: Publish rule enforces ≥ 4.
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+          maxLength: 500
+        topics:
+          description: Intended single item (publish rule enforces ≤ 1).
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          enum:
+            - pillar
+            - cluster
+            - micro
+            - insight
+            - observant
+      required:
+        - title
+        - slug
+        - status
+        - source
+    CreateCategoryDto:
+      type: object
+      properties:
+        coverImage:
+          type: string
+          description: Stored image URL — no vendor call is made here.
+        description:
+          type: string
+        name:
+          type: string
+          maxLength: 255
+        pexelsImages:
+          description: Stored Pexels image URLs. Empty by default — the Pexels API is not called from this module.
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved (AGENTS.md rule 6).
+      required:
+        - name
+        - slug
+    CreatePillarDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        coverImage:
+          type: string
+          description: Stored image URL — no vendor call is made here.
+        description:
+          type: string
+        name:
+          type: string
+          maxLength: 255
+        pexelsImages:
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved; unique (409 on collision).
+      required:
+        - name
+        - slug
+        - categoryId
+    CreateTicketDto:
+      type: object
+      properties:
+        topics:
+          description: Topics to subscribe to (1–8). Validated + authorized at issuance.
+          example:
+            - article:0f8fad5b-d9cb-469f-a165-70867728950e
+          type: array
+          items:
+            type: string
+      required:
+        - topics
+    DashboardStatsDto:
+      type: object
+      properties:
+        articles:
+          $ref: '#/components/schemas/ArticleCountersDto'
+        pendingCommentsCount:
+          type: number
+        totalReach:
+          type: number
+          description: Stays 0 in the frozen contract (no visitor counter yet).
+        totalUniqueViews:
+          type: number
+        totalViews:
+          type: number
+          description: Signed-off cache value; never recomputed per-request.
+        usersCount:
+          type: number
+      required:
+        - articles
+        - usersCount
+        - totalViews
+        - totalUniqueViews
+        - totalReach
+        - pendingCommentsCount
+    DedupeResultDto:
+      type: object
+      properties:
+        dedupedSlugs:
+          description: Slugs collapsed by this run; [] on a clean (unique-slug) table — idempotent.
+          type: array
+          items:
+            type: string
+      required:
+        - dedupedSlugs
+    DeviceStatsDto:
+      type: object
+      properties:
+        browsers:
+          type: array
+          items:
+            $ref: '#/components/schemas/NameValueDto'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/NameValueDto'
+        oss:
+          type: array
+          items:
+            $ref: '#/components/schemas/NameValueDto'
+      required:
+        - devices
+        - browsers
+        - oss
+    EmailIdDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required:
+        - id
+    EmailLogDto:
+      type: object
+      properties:
+        error:
+          type: string
+          nullable: true
+        id:
+          type: string
+          format: uuid
+        recipient:
+          type: string
+        retries:
+          type: number
+        scheduledFor:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          nullable: true
+          format: date-time
+        status:
+          type: string
+          enum:
+            - pending
+            - sending
+            - sent
+            - failed
+        subject:
+          type: string
+        templateData:
+          type: object
+          additionalProperties: true
+          description: Token-bearing keys (`resetUrl`, `unsubscribeUrl`, `confirmUrl`, `otpCode`) are omitted.
+        templateName:
+          type: string
+      required:
+        - id
+        - recipient
+        - subject
+        - templateName
+        - templateData
+        - status
+        - scheduledFor
+        - sentAt
+        - error
+        - retries
+    EmailSuccessDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    EngagementDto:
+      type: object
+      properties:
+        bookmarksCount:
+          type: number
+        commentsCount:
+          type: number
+        insightfulCount:
+          type: number
+        isBookmarked:
+          type: boolean
+          description: The caller’s own bookmark state, from the token `sub`; false when anonymous.
+        likeCount:
+          type: number
+        loveCount:
+          type: number
+        totalReactions:
+          type: number
+        userReaction:
+          type: string
+          enum:
+            - like
+            - love
+            - insightful
+          nullable: true
+          description: The caller’s own reaction, from the token `sub`; null when anonymous or none.
+      required:
+        - likeCount
+        - loveCount
+        - insightfulCount
+        - totalReactions
+        - commentsCount
+        - bookmarksCount
+        - userReaction
+        - isBookmarked
+    EngagementSuccessDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    FeaturedListItemDto:
+      type: object
+      properties:
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+        categoryName:
+          type: string
+        coverImage:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        id:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+        title:
+          type: string
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - coverImage
+        - publishedAt
+        - authorName
+        - authorImage
+        - categoryName
+        - viewCount
+    FetchModelsDto:
+      type: object
+      properties:
+        apiKey:
+          type: string
+          maxLength: 256
+          description: Transient test key; never echoed or persisted (DEV-053).
+        provider:
+          type: string
+          maxLength: 50
+      required:
+        - provider
+    GenerateArticleFromTopicDto:
+      type: object
+      properties:
+        model:
+          type: string
+          maxLength: 200
+        provider:
+          type: string
+          maxLength: 50
+        systemPrompt:
+          type: string
+          maxLength: 20000
+        topic:
+          type: string
+          maxLength: 500
+      required:
+        - provider
+        - model
+        - topic
+    GenerateContentDto:
+      type: object
+      properties:
+        model:
+          type: string
+          maxLength: 200
+        prompt:
+          type: string
+          maxLength: 20000
+        provider:
+          type: string
+          maxLength: 50
+        systemPrompt:
+          type: string
+          maxLength: 20000
+      required:
+        - provider
+        - model
+        - prompt
+    GenerateOtpDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: reader@example.com
+          maxLength: 320
+        type:
+          type: string
+          enum:
+            - password_reset
+            - password_change
+          example: password_reset
+      required:
+        - email
+        - type
+    GeoLocationDto:
+      type: object
+      properties:
+        city:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          maxLength: 100
+    GeoLocationResponseDto:
+      type: object
+      properties:
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+      required:
+        - country
+        - city
+    GeographicStatDto:
+      type: object
+      properties:
+        count:
+          type: number
+        country:
+          type: string
+      required:
+        - country
+        - count
+    IncrementStatsDto:
+      type: object
+      properties:
+        update:
+          $ref: '#/components/schemas/IncrementStatsUpdateDto'
+      required:
+        - update
+    IncrementStatsResultDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+    IncrementStatsUpdateDto:
+      type: object
+      properties:
+        aiDraftCount:
+          type: number
+        commentsCount:
+          type: number
+        draftArticles:
+          type: number
+        pendingCommentsCount:
+          type: number
+        publishedArticles:
+          type: number
+        scheduledArticles:
+          type: number
+        totalArticles:
+          type: number
+        totalUniqueViews:
+          type: number
+        totalViews:
+          type: number
+        usersCount:
+          type: number
+    LearnAuthorStyleDto:
+      type: object
+      properties:
+        model:
+          type: string
+          maxLength: 200
+        provider:
+          type: string
+          maxLength: 50
+      required:
+        - provider
+        - model
+    ListArticlesQueryDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          description: Filter by category id.
+        page:
+          type: number
+          description: 1-based page number.
+          minimum: 1
+          default: 1
+        pageSize:
+          type: number
+          description: Items per page (1-100).
+          minimum: 1
+          maximum: 100
+          default: 20
+        pillar:
+          type: string
+          description: Filter by pillar slug.
+        type:
+          type: string
+          enum:
+            - pillar
+            - cluster
+            - micro
+            - insight
+            - observant
+    LogArticleViewDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+          format: uuid
+        visitorId:
+          type: string
+          format: uuid
+      required:
+        - articleId
+        - visitorId
+    LogHeartbeatDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+          format: uuid
+        seconds:
+          type: number
+          minimum: 0
+          maximum: 3600
+        visitorId:
+          type: string
+          format: uuid
+      required:
+        - articleId
+        - visitorId
+        - seconds
+    LogPageVisitDto:
+      type: object
+      properties:
+        browser:
+          type: string
+          maxLength: 100
+        device:
+          type: string
+          maxLength: 100
+        geoLocation:
+          $ref: '#/components/schemas/GeoLocationDto'
+        os:
+          type: string
+          maxLength: 100
+        referrer:
+          type: string
+          maxLength: 2048
+        url:
+          type: string
+          maxLength: 2048
+        visitorId:
+          type: string
+          format: uuid
+          description: Visitor tracking code (client UUID).
+      required:
+        - visitorId
+        - url
+        - device
+        - browser
+        - os
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+        password:
+          type: string
+          example: correct horse battery staple
+          minLength: 8
+          maxLength: 72
+      required:
+        - email
+        - password
+    LoginResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived ADR-017 bearer token.
+        expiresIn:
+          type: number
+          description: Token lifetime in seconds.
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+          example: Bearer
+        user:
+          description: The caller’s own projection — enumerated, secret-free (DEV-034).
+          allOf:
+            - $ref: '#/components/schemas/SelfUserResponseDto'
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+        - user
+    MarkTopicAsProcessedDto:
+      type: object
+      properties:
+        topic:
+          type: string
+          maxLength: 500
+      required:
+        - topic
+    MintResetTokenDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+      required:
+        - email
+    NameValueDto:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+      required:
+        - name
+        - value
+    Object:
+      type: object
+      properties: {}
+    OtpSendResultDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: If you have an account with us, you should get an email
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+        - message
+    OtpVerifyResultDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Invalid or expired code
+        success:
+          type: boolean
+          example: false
+      required:
+        - success
+        - message
+    PageVisitDto:
+      type: object
+      properties:
+        browser:
+          type: string
+        device:
+          type: string
+        geoLocation:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/GeoLocationResponseDto'
+        id:
+          type: string
+        ipAddress:
+          type: string
+          maxLength: 45
+        os:
+          type: string
+        referrer:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        url:
+          type: string
+          maxLength: 2048
+        userRef:
+          type: string
+          nullable: true
+          description: Bare attribution reference (write-once) — never caller identity.
+        visitorId:
+          type: string
+          format: uuid
+      required:
+        - id
+        - visitorId
+        - userRef
+        - url
+        - ipAddress
+        - geoLocation
+        - device
+        - browser
+        - os
+        - referrer
+        - timestamp
+    PaginatedAdminUserDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserProjectionDto'
+        total:
+          type: number
+      required:
+        - items
+        - total
+    PaginatedArticleDetailDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleDetailDto'
+        page:
+          type: number
+        pageSize:
+          type: number
+        total:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - items
+        - total
+        - page
+        - pageSize
+        - totalPages
+    PaginatedArticleListItemDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleListItemDto'
+        page:
+          type: number
+        pageSize:
+          type: number
+        total:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - items
+        - total
+        - page
+        - pageSize
+        - totalPages
+    PasswordResetNeutralDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    PendingEmailDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        recipient:
+          type: string
+        retries:
+          type: number
+        scheduledFor:
+          type: string
+        subject:
+          type: string
+        templateData:
+          type: object
+          additionalProperties: true
+        templateName:
+          type: string
+      required:
+        - id
+        - recipient
+        - subject
+        - templateName
+        - templateData
+        - scheduledFor
+        - retries
+    PillarListItemDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        categoryName:
+          type: string
+        categorySlug:
+          type: string
+        coverImage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+          nullable: true
+        id:
+          type: string
+        name:
+          type: string
+        pexelsImages:
+          description: Stored image URLs; no vendor call is made here.
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved; unique.
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - coverImage
+        - pexelsImages
+        - categoryId
+        - createdAt
+        - categoryName
+        - categorySlug
+    PillarResponseDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        coverImage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+          nullable: true
+        id:
+          type: string
+        name:
+          type: string
+        pexelsImages:
+          description: Stored image URLs; no vendor call is made here.
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+          description: Public URL segment — byte-preserved; unique.
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - coverImage
+        - pexelsImages
+        - categoryId
+        - createdAt
+    ProcessQueueDto:
+      type: object
+      properties:
+        limit:
+          type: number
+          default: 50
+          minimum: 1
+          maximum: 200
+    ProcessQueueResultDto:
+      type: object
+      properties:
+        failed:
+          type: number
+        processed:
+          type: number
+        sent:
+          type: number
+        skipped:
+          type: boolean
+          description: True when the due-pending set was empty.
+      required:
+        - processed
+        - sent
+        - failed
+        - skipped
+    ProcessScheduleResultDto:
+      type: object
+      properties:
+        failed:
+          type: number
+        generated:
+          type: number
+        processed:
+          type: number
+          description: Schedules due and processed.
+        skipped:
+          type: boolean
+          description: True when settings were inactive/keyless or nothing was due.
+      required:
+        - processed
+        - generated
+        - failed
+        - skipped
+    PublicAuthorCardResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        profileImage:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - profileImage
+    PublishScheduledResultDto:
+      type: object
+      properties:
+        publishedCount:
+          type: number
+          description: Articles flipped from scheduled to published by this call (0 on a re-run).
+      required:
+        - publishedCount
+    PurgeResultDto:
+      type: object
+      properties:
+        deletedCount:
+          type: number
+        isDone:
+          type: boolean
+      required:
+        - deletedCount
+        - isDone
+    QueueAlertsDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+      required:
+        - articleId
+    QueueAlertsResultDto:
+      type: object
+      properties:
+        queued:
+          type: number
+          description: New queue rows inserted (0 when every subscriber already holds one — idempotent).
+      required:
+        - queued
+    QueuedEmailDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required:
+        - id
+    QuoteResponseDto:
+      type: object
+      properties:
+        author:
+          type: string
+        category:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+        text:
+          type: string
+      required:
+        - id
+        - text
+        - author
+        - category
+        - createdAt
+    RawVisitRowDto:
+      type: object
+      properties:
+        browser:
+          type: string
+        device:
+          type: string
+        geoLocation:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/GeoLocationResponseDto'
+        id:
+          type: string
+        ipAddress:
+          type: string
+        os:
+          type: string
+        referrer:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+          description: Present on reaction rows only (`reaction`).
+        url:
+          type: string
+        userRef:
+          type: string
+          nullable: true
+        visitorId:
+          type: string
+          description: 'Visit rows: the visitor tracking UUID. Reaction rows: an opaque `User <first8>` handle — never a user email.'
+      required:
+        - id
+        - timestamp
+        - url
+        - visitorId
+        - ipAddress
+        - geoLocation
+        - device
+        - browser
+        - os
+    RawVisitsPageDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RawVisitRowDto'
+        page:
+          $ref: '#/components/schemas/RawVisitsPageMetaDto'
+      required:
+        - data
+        - page
+    RawVisitsPageMetaDto:
+      type: object
+      properties:
+        hasMore:
+          type: boolean
+        limit:
+          type: number
+        nextCursor:
+          type: string
+          nullable: true
+      required:
+        - limit
+        - hasMore
+        - nextCursor
+    ReactionToggleDto:
+      type: object
+      properties:
+        active:
+          type: boolean
+          description: true when a reaction is now stored; false when it was removed.
+        type:
+          type: string
+          enum:
+            - like
+            - love
+            - insightful
+          nullable: true
+      required:
+        - active
+        - type
+    RecentListItemDto:
+      type: object
+      properties:
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+        categoryName:
+          type: string
+        coverImage:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        id:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+        title:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - coverImage
+        - publishedAt
+        - authorName
+        - authorImage
+        - categoryName
+        - viewCount
+        - updatedAt
+    RecomputeStatsDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    ReferrerStatDto:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+      required:
+        - name
+        - value
+    RegisterDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+        name:
+          type: string
+          example: Ada Lovelace
+          maxLength: 120
+        newsletterSubscribed:
+          type: boolean
+          default: false
+        password:
+          type: string
+          example: correct horse battery staple
+          minLength: 8
+          maxLength: 72
+      required:
+        - name
+        - email
+        - password
+    RegisterResponseDto:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+      required:
+        - status
+    RemoveCategoryDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    RemovePillarDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    RemoveQuoteDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    RequestPasswordResetDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+      required:
+        - email
+    ResearchTopicDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - processed
+        topic:
+          type: string
+      required:
+        - id
+        - topic
+        - categoryId
+        - status
+        - createdAt
+    ResetPasswordDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: a new plaintext passphrase
+          minLength: 8
+          maxLength: 72
+        token:
+          type: string
+          description: Single-use, short-TTL reset token.
+      required:
+        - token
+        - password
+    ResetTokenResponseDto:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        token:
+          type: string
+      required:
+        - token
+        - expiresAt
+    RollupResultDto:
+      type: object
+      properties:
+        dates:
+          type: number
+        isDone:
+          type: boolean
+        processed:
+          type: number
+      required:
+        - processed
+        - dates
+        - isDone
+    RunSingleResearchDto:
+      type: object
+      properties:
+        topic:
+          type: string
+          maxLength: 500
+      required:
+        - topic
+    SaveAIDraftDto:
+      type: object
+      properties:
+        content:
+          type: string
+        excerpt:
+          type: string
+        focusKeyword:
+          type: string
+        metaDescription:
+          type: string
+        metaTitle:
+          type: string
+        pillar:
+          type: string
+          description: Pillar slug (validated against the pillars table, DEV-023 class).
+        title:
+          type: string
+          maxLength: 500
+        topic:
+          type: string
+          description: Kept for the frozen arg contract; unused by the handler (`articles.ts:1234`).
+        topics:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          enum:
+            - pillar
+            - cluster
+            - micro
+            - insight
+            - observant
+      required:
+        - title
+        - content
+        - excerpt
+        - topic
+    ScheduleDto:
+      type: object
+      properties:
+        daysOfWeek:
+          type: array
+          items:
+            type: number
+        id:
+          type: string
+        isActive:
+          type: boolean
+        lastRun:
+          type: string
+          nullable: true
+          format: date-time
+          description: null = never run (frozen sentinel 0 mapped, DEV-051).
+        time:
+          type: string
+        timezone:
+          type: string
+        topicsToResearch:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - daysOfWeek
+        - time
+        - timezone
+        - isActive
+        - lastRun
+        - topicsToResearch
+    SearchResultDto:
+      type: object
+      properties:
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+        categoryName:
+          type: string
+          description: Resolved category name; "Unknown" when unresolved (frozen fallback).
+        coverImage:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        id:
+          type: string
+        pillarName:
+          type: string
+          nullable: true
+          description: Resolved pillar name; null when the slug matches no pillar.
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+        title:
+          type: string
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - coverImage
+        - publishedAt
+        - categoryName
+        - pillarName
+        - authorName
+        - authorImage
+        - viewCount
+    SelfUserFullResponseDto:
+      type: object
+      properties:
+        completedTours:
+          description: Tour ids already completed.
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        email:
+          type: string
+        emailConfirmed:
+          type: boolean
+          nullable: true
+          description: NULL when no confirmation has been attempted.
+        id:
+          type: string
+        name:
+          type: string
+        newsletterSubscribed:
+          type: boolean
+        profileImage:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          description: Account origin, e.g. `credentials` or `google`.
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+          description: DB-resolved, never a token claim (DEV-032).
+        stats:
+          $ref: '#/components/schemas/SelfUserStatsDto'
+      required:
+        - id
+        - name
+        - email
+        - profileImage
+        - provider
+        - role
+        - newsletterSubscribed
+        - emailConfirmed
+        - completedTours
+        - createdAt
+        - stats
+    SelfUserResponseDto:
+      type: object
+      properties:
+        completedTours:
+          description: Tour ids already completed.
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        email:
+          type: string
+        emailConfirmed:
+          type: boolean
+          nullable: true
+          description: NULL when no confirmation has been attempted.
+        id:
+          type: string
+        name:
+          type: string
+        newsletterSubscribed:
+          type: boolean
+        profileImage:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          description: Account origin, e.g. `credentials` or `google`.
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+          description: DB-resolved, never a token claim (DEV-032).
+      required:
+        - id
+        - name
+        - email
+        - profileImage
+        - provider
+        - role
+        - newsletterSubscribed
+        - emailConfirmed
+        - completedTours
+        - createdAt
+    SelfUserStatsDto:
+      type: object
+      properties:
+        bookmarks:
+          type: number
+        comments:
+          type: number
+        reactions:
+          type: number
+      required:
+        - bookmarks
+        - comments
+        - reactions
+    SendTestEmailDto:
+      type: object
+      properties:
+        recipient:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+      required:
+        - recipient
+    SendTestEmailResultDto:
+      type: object
+      properties:
+        message:
+          type: string
+          description: A generic, SMTP-internals-free message on failure.
+        success:
+          type: boolean
+      required:
+        - success
+    SetWritingStatusDto:
+      type: object
+      properties:
+        isWriting:
+          type: boolean
+      required:
+        - isWriting
+    ShuffleSuggestionDto:
+      type: object
+      properties:
+        categoryName:
+          type: string
+        seoReasoning:
+          type: string
+        topic:
+          type: string
+      required:
+        - topic
+        - categoryName
+        - seoReasoning
+    ShuffleTopicsDto:
+      type: object
+      properties:
+        model:
+          type: string
+          maxLength: 200
+        provider:
+          type: string
+          maxLength: 50
+      required:
+        - provider
+        - model
+    SiteSettingsResponseDto:
+      type: object
+      properties:
+        address:
+          type: string
+          nullable: true
+        email:
+          type: string
+          description: Public marketing contact address (site settings are public data).
+        footerText:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        siteDescription:
+          type: string
+        siteName:
+          type: string
+        socials:
+          $ref: '#/components/schemas/SiteSocialsResponseDto'
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - siteName
+        - siteDescription
+        - email
+        - phone
+        - address
+        - socials
+        - footerText
+        - updatedAt
+    SiteSocialsDto:
+      type: object
+      properties:
+        facebook:
+          type: string
+          maxLength: 500
+        github:
+          type: string
+          maxLength: 500
+        instagram:
+          type: string
+          maxLength: 500
+        linkedin:
+          type: string
+          maxLength: 500
+        tiktok:
+          type: string
+          maxLength: 500
+        twitter:
+          type: string
+          maxLength: 500
+        youtube:
+          type: string
+          maxLength: 500
+    SiteSocialsResponseDto:
+      type: object
+      properties:
+        facebook:
+          type: string
+          nullable: true
+        github:
+          type: string
+          nullable: true
+        instagram:
+          type: string
+          nullable: true
+        linkedin:
+          type: string
+          nullable: true
+        tiktok:
+          type: string
+          nullable: true
+        twitter:
+          type: string
+          nullable: true
+        youtube:
+          type: string
+          nullable: true
+    StoreUserDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+        name:
+          type: string
+          example: Ada Lovelace
+          maxLength: 120
+        profileImage:
+          type: string
+          maxLength: 2048
+      required:
+        - name
+        - email
+    StoredUserResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    SubscribeNewsletterDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: ada@example.com
+          maxLength: 320
+      required:
+        - email
+    SubscribeStatusResponseDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - verification_sent
+            - subscribed
+      required:
+        - status
+    SuccessDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    SuccessResponseDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required:
+        - success
+    TagListItemDto:
+      type: object
+      properties:
+        authorImage:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+        categoryName:
+          type: string
+        coverImage:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        id:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        viewCount:
+          type: number
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - coverImage
+        - publishedAt
+        - authorName
+        - authorImage
+        - categoryName
+        - viewCount
+        - updatedAt
+        - tags
+    TestConnectionDto:
+      type: object
+      properties:
+        apiKey:
+          type: string
+          maxLength: 256
+          description: Transient test key; never echoed or persisted (DEV-053).
+        model:
+          type: string
+          maxLength: 200
+        provider:
+          type: string
+          maxLength: 50
+      required:
+        - provider
+        - model
+    TicketResponseDto:
+      type: object
+      properties:
+        expiresIn:
+          type: number
+          description: Ticket lifetime in seconds.
+          example: 30
+        ticket:
+          type: string
+          description: Opaque single-use ticket (base64url, 256-bit).
+      required:
+        - ticket
+        - expiresIn
+    ToggleBookmarkDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+          format: uuid
+      required:
+        - articleId
+    ToggleFeaturedDto:
+      type: object
+      properties:
+        id:
+          type: string
+        isFeatured:
+          type: boolean
+      required:
+        - id
+        - isFeatured
+    ToggleReactionDto:
+      type: object
+      properties:
+        articleId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - like
+            - love
+            - insightful
+      required:
+        - articleId
+        - type
+    TopContentDto:
+      type: object
+      properties:
+        avgReadTime:
+          type: number
+          description: Average seconds per unique view.
+        engagementRate:
+          type: number
+          description: reactions / uniqueViews * 100.
+        id:
+          type: string
+          format: uuid
+        reactions:
+          type: number
+        title:
+          type: string
+        uniqueViews:
+          type: number
+        views:
+          type: number
+      required:
+        - id
+        - title
+        - views
+        - uniqueViews
+        - reactions
+        - avgReadTime
+        - engagementRate
+    TourCompletedResponseDto:
+      type: object
+      properties:
+        success:
+          type: object
+          example: true
+          description: Always `true`; the tour record is written or already present.
+      required:
+        - success
+    TrafficChartPointDto:
+      type: object
+      properties:
+        date:
+          type: string
+          description: YYYY-MM-DD (UTC).
+        uniqueVisitors:
+          type: number
+        visits:
+          type: number
+      required:
+        - date
+        - visits
+        - uniqueVisitors
+    TrafficStatsDto:
+      type: object
+      properties:
+        chartData:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficChartPointDto'
+        isTrendUp:
+          type: boolean
+        totalVisits:
+          type: number
+        trend:
+          type: string
+          description: One-decimal percentage string, frozen shape.
+      required:
+        - chartData
+        - totalVisits
+        - trend
+        - isTrendUp
+    UnsubscribeDto:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Signed, single-use unsubscribe token.
+      required:
+        - token
+    UpdateAdsSettingsDto:
+      type: object
+      properties:
+        adsEnabled:
+          type: boolean
+        adsenseAdUnitCode:
+          type: string
+        adsenseScriptCode:
+          type: string
+          description: Admin-supplied script body. Stored as data; never executed server-side.
+        showAdBottomOfArticle:
+          type: boolean
+        showAdMiddleOfArticle:
+          type: boolean
+        showAdSidebar:
+          type: boolean
+        showAdTopOfArticle:
+          type: boolean
+      required:
+        - adsEnabled
+        - adsenseScriptCode
+        - adsenseAdUnitCode
+        - showAdTopOfArticle
+        - showAdMiddleOfArticle
+        - showAdBottomOfArticle
+        - showAdSidebar
+    UpdateArticleDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        content:
+          type: string
+          description: Rich text (HTML).
+        coverImage:
+          type: string
+          description: Stored image URL — no vendor call is made here.
+        coverImageAlt:
+          type: string
+          description: Stored image alt text.
+        excerpt:
+          type: string
+        focusKeyword:
+          type: string
+        id:
+          type: string
+        isFeatured:
+          type: boolean
+        metaDescription:
+          type: string
+          description: Publish rule enforces ≤ 255 characters.
+        metaTitle:
+          type: string
+        pillar:
+          type: string
+          description: Pillar slug. Must reference an existing pillar (422 otherwise, DEV-023 FK class).
+        scheduledFor:
+          type: string
+          description: ISO-8601 timestamp (Convex carried epoch millis).
+        slug:
+          type: string
+          description: Public URL segment. A change colliding with another article is 409 (frozen semantics, `articles.ts:689-698`).
+        source:
+          type: string
+          enum:
+            - human
+            - ai
+        status:
+          type: string
+          enum:
+            - draft
+            - scheduled
+            - published
+        tags:
+          description: Publish rule enforces ≥ 4.
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+          maxLength: 500
+        topics:
+          description: Intended single item (publish rule enforces ≤ 1).
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          enum:
+            - pillar
+            - cluster
+            - micro
+            - insight
+            - observant
+      required:
+        - id
+    UpdateCategoryDto:
+      type: object
+      properties:
+        coverImage:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+          maxLength: 255
+        pexelsImages:
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+      required:
+        - id
+    UpdateCommentStatusDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - spam
+            - removed
+      required:
+        - id
+        - status
+    UpdateEmailStatusDto:
+      type: object
+      properties:
+        error:
+          type: string
+          maxLength: 5000
+        retryIncrement:
+          type: boolean
+          description: When true, increments `retries` by one atomically.
+        sentAt:
+          type: number
+          description: Epoch-ms sent timestamp.
+        status:
+          type: string
+          enum:
+            - pending
+            - sending
+            - sent
+            - failed
+      required:
+        - status
+    UpdateLastRunDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required:
+        - id
+    UpdatePillarDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          description: Unresolvable id → 422 naming the field (DEV-011 class).
+        coverImage:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+          maxLength: 255
+        pexelsImages:
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+      required:
+        - id
+    UpdateProfileDto:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        newsletterSubscribed:
+          type: boolean
+        profileImage:
+          type: string
+          maxLength: 2048
+    UpdateScheduleV2Dto:
+      type: object
+      properties:
+        daysOfWeek:
+          description: Days 0 (Sun) … 6 (Sat).
+          type: array
+          items:
+            type: number
+            maximum: 6
+            minimum: 0
+        id:
+          type: string
+          format: uuid
+        isActive:
+          type: boolean
+        time:
+          type: string
+          example: '08:30'
+          pattern: HH:MM
+        timezone:
+          type: string
+          maxLength: 100
+        topicsToResearch:
+          type: array
+          items:
+            type: string
+      required:
+        - daysOfWeek
+        - time
+        - timezone
+        - isActive
+        - topicsToResearch
+    UpdateSettingsDto:
+      type: object
+      properties:
+        apiKey:
+          type: string
+          maxLength: 256
+          description: Write-only (DEV-048). An absent or empty value retains the stored key; never echoed back.
+        isActive:
+          type: boolean
+        model:
+          type: string
+          maxLength: 200
+        promptTemplate:
+          type: string
+          maxLength: 20000
+        provider:
+          type: string
+          maxLength: 50
+      required:
+        - provider
+        - model
+        - isActive
+    UpdateSiteSettingsDto:
+      type: object
+      properties:
+        address:
+          type: string
+          maxLength: 500
+        email:
+          type: string
+          description: Public marketing contact address (site settings are public data). A blank string clears it; omit to leave it unchanged.
+        footerText:
+          type: string
+          maxLength: 500
+        phone:
+          type: string
+          maxLength: 64
+        siteDescription:
+          type: string
+          maxLength: 2000
+        siteName:
+          type: string
+          maxLength: 255
+        socials:
+          $ref: '#/components/schemas/SiteSocialsDto'
+      required:
+        - siteName
+        - siteDescription
+        - socials
+    UpdateUserRoleDto:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+      required:
+        - role
+    VerifyOtpAndChangePasswordDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: '123456'
+          pattern: ^\d{6}$
+        email:
+          type: string
+          example: reader@example.com
+          maxLength: 320
+        newPassword:
+          type: string
+          description: Plaintext new password (8-72 chars). A pre-computed bcrypt hash is refused.
+          example: correct horse battery staple
+        type:
+          type: string
+          enum:
+            - password_reset
+            - password_change
+          example: password_reset
+      required:
+        - email
+        - code
+        - type
+        - newPassword
+    VerifyOtpDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: '123456'
+          pattern: ^\d{6}$
+        email:
+          type: string
+          example: reader@example.com
+          maxLength: 320
+        type:
+          type: string
+          enum:
+            - password_reset
+            - password_change
+          example: password_reset
+      required:
+        - email
+        - code
+        - type
+    WeeklyDigestResultDto:
+      type: object
+      properties:
+        queued:
+          type: number
+          description: Queue rows inserted.
+        skipped:
+          type: boolean
+          description: True when no article qualified in the 7-day window.
+        subscribers:
+          type: number
+          description: Subscribed users found.
+      required:
+        - subscribers
+        - queued
+        - skipped
+security:
+  - bearerAuth: []

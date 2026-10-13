@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.ts"
-import type * as Prisma from "../internal/prismaNamespace.ts"
+import type * as $Enums from "../enums"
+import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model User
@@ -1727,7 +1727,11 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     resetToken: string | null
     resetTokenExpires: Date | null
     /**
-     * Max 2 items in the export.
+     * Max 2 items in the export. `@default([])` (not `NOT NULL`) is the closest
+     * Prisma can express for a scalar list — its canonical DDL is a nullable
+     * column with `DEFAULT ARRAY[]::TEXT[]`. Convex users omit
+     * `completedTours`, and the DB now defaults to an empty array instead of
+     * `NULL` (DEV-026).
      */
     completedTours: string[]
     createdAt: Date

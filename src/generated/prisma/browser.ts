@@ -13,10 +13,10 @@
  * 🟢 You can import this file directly.
  */
 
-import * as Prisma from './internal/prismaNamespaceBrowser.ts'
+import * as Prisma from './internal/prismaNamespaceBrowser'
 export { Prisma }
-export * as $Enums from './enums.ts'
-export * from './enums.ts';
+export * as $Enums from './enums'
+export * from './enums';
 /**
  * Model GlobalStats
  * Denormalised counters, read by web/convex/admin.ts:15 to avoid table scans.
@@ -175,6 +175,14 @@ export type SiteSettings = Prisma.SiteSettingsModel
  * `code` is deliberately NOT unique: OTP codes expire, so two live rows sharing
  * a value is legitimate and a unique constraint would reject the insert. The
  * Phase 08 cleanup job deletes expired rows.
+ * `code` is VARCHAR(128), not 32, to reserve width for a hash-at-rest encoding
+ * (bcrypt 60 / Argon2) per §CN-1 R9 — see DEV-027. Convex still stores the
+ * 6-digit plaintext, so Phase 02 imports it unchanged.
+ * 
+ * ⚠️ THIS TABLE IS NOT A FAITHFUL PORT. The four columns added below are the
+ * §CN-1 S-027 remediation and have **no counterpart in the frozen Convex
+ * schema** — see DEV-028 and the R1 atomicity warning at the column itself.
+ * Nothing else about the table deviates.
  */
 export type OtpCode = Prisma.OtpCodeModel
 /**

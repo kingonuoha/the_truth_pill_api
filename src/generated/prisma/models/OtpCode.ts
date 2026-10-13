@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.ts"
-import type * as Prisma from "../internal/prismaNamespace.ts"
+import type * as $Enums from "../enums"
+import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model OtpCode
@@ -19,13 +19,31 @@ import type * as Prisma from "../internal/prismaNamespace.ts"
  * `code` is deliberately NOT unique: OTP codes expire, so two live rows sharing
  * a value is legitimate and a unique constraint would reject the insert. The
  * Phase 08 cleanup job deletes expired rows.
+ * `code` is VARCHAR(128), not 32, to reserve width for a hash-at-rest encoding
+ * (bcrypt 60 / Argon2) per §CN-1 R9 — see DEV-027. Convex still stores the
+ * 6-digit plaintext, so Phase 02 imports it unchanged.
+ * 
+ * ⚠️ THIS TABLE IS NOT A FAITHFUL PORT. The four columns added below are the
+ * §CN-1 S-027 remediation and have **no counterpart in the frozen Convex
+ * schema** — see DEV-028 and the R1 atomicity warning at the column itself.
+ * Nothing else about the table deviates.
  */
 export type OtpCodeModel = runtime.Types.Result.DefaultSelection<Prisma.$OtpCodePayload>
 
 export type AggregateOtpCode = {
   _count: OtpCodeCountAggregateOutputType | null
+  _avg: OtpCodeAvgAggregateOutputType | null
+  _sum: OtpCodeSumAggregateOutputType | null
   _min: OtpCodeMinAggregateOutputType | null
   _max: OtpCodeMaxAggregateOutputType | null
+}
+
+export type OtpCodeAvgAggregateOutputType = {
+  attempts: number | null
+}
+
+export type OtpCodeSumAggregateOutputType = {
+  attempts: number | null
 }
 
 export type OtpCodeMinAggregateOutputType = {
@@ -34,6 +52,10 @@ export type OtpCodeMinAggregateOutputType = {
   code: string | null
   type: $Enums.OtpCodeType | null
   expiresAt: Date | null
+  attempts: number | null
+  lockedUntil: Date | null
+  lastSentAt: Date | null
+  consumedAt: Date | null
 }
 
 export type OtpCodeMaxAggregateOutputType = {
@@ -42,6 +64,10 @@ export type OtpCodeMaxAggregateOutputType = {
   code: string | null
   type: $Enums.OtpCodeType | null
   expiresAt: Date | null
+  attempts: number | null
+  lockedUntil: Date | null
+  lastSentAt: Date | null
+  consumedAt: Date | null
 }
 
 export type OtpCodeCountAggregateOutputType = {
@@ -50,9 +76,21 @@ export type OtpCodeCountAggregateOutputType = {
   code: number
   type: number
   expiresAt: number
+  attempts: number
+  lockedUntil: number
+  lastSentAt: number
+  consumedAt: number
   _all: number
 }
 
+
+export type OtpCodeAvgAggregateInputType = {
+  attempts?: true
+}
+
+export type OtpCodeSumAggregateInputType = {
+  attempts?: true
+}
 
 export type OtpCodeMinAggregateInputType = {
   id?: true
@@ -60,6 +98,10 @@ export type OtpCodeMinAggregateInputType = {
   code?: true
   type?: true
   expiresAt?: true
+  attempts?: true
+  lockedUntil?: true
+  lastSentAt?: true
+  consumedAt?: true
 }
 
 export type OtpCodeMaxAggregateInputType = {
@@ -68,6 +110,10 @@ export type OtpCodeMaxAggregateInputType = {
   code?: true
   type?: true
   expiresAt?: true
+  attempts?: true
+  lockedUntil?: true
+  lastSentAt?: true
+  consumedAt?: true
 }
 
 export type OtpCodeCountAggregateInputType = {
@@ -76,6 +122,10 @@ export type OtpCodeCountAggregateInputType = {
   code?: true
   type?: true
   expiresAt?: true
+  attempts?: true
+  lockedUntil?: true
+  lastSentAt?: true
+  consumedAt?: true
   _all?: true
 }
 
@@ -117,6 +167,18 @@ export type OtpCodeAggregateArgs<ExtArgs extends runtime.Types.Extensions.Intern
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: OtpCodeAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: OtpCodeSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: OtpCodeMinAggregateInputType
@@ -147,6 +209,8 @@ export type OtpCodeGroupByArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   _count?: OtpCodeCountAggregateInputType | true
+  _avg?: OtpCodeAvgAggregateInputType
+  _sum?: OtpCodeSumAggregateInputType
   _min?: OtpCodeMinAggregateInputType
   _max?: OtpCodeMaxAggregateInputType
 }
@@ -157,7 +221,13 @@ export type OtpCodeGroupByOutputType = {
   code: string
   type: $Enums.OtpCodeType
   expiresAt: Date
+  attempts: number
+  lockedUntil: Date | null
+  lastSentAt: Date | null
+  consumedAt: Date | null
   _count: OtpCodeCountAggregateOutputType | null
+  _avg: OtpCodeAvgAggregateOutputType | null
+  _sum: OtpCodeSumAggregateOutputType | null
   _min: OtpCodeMinAggregateOutputType | null
   _max: OtpCodeMaxAggregateOutputType | null
 }
@@ -186,6 +256,10 @@ export type OtpCodeWhereInput = {
   code?: Prisma.StringFilter<"OtpCode"> | string
   type?: Prisma.EnumOtpCodeTypeFilter<"OtpCode"> | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeFilter<"OtpCode"> | Date | string
+  attempts?: Prisma.IntFilter<"OtpCode"> | number
+  lockedUntil?: Prisma.DateTimeNullableFilter<"OtpCode"> | Date | string | null
+  lastSentAt?: Prisma.DateTimeNullableFilter<"OtpCode"> | Date | string | null
+  consumedAt?: Prisma.DateTimeNullableFilter<"OtpCode"> | Date | string | null
 }
 
 export type OtpCodeOrderByWithRelationInput = {
@@ -194,6 +268,10 @@ export type OtpCodeOrderByWithRelationInput = {
   code?: Prisma.SortOrder
   type?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  attempts?: Prisma.SortOrder
+  lockedUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  consumedAt?: Prisma.SortOrderInput | Prisma.SortOrder
 }
 
 export type OtpCodeWhereUniqueInput = Prisma.AtLeast<{
@@ -205,6 +283,10 @@ export type OtpCodeWhereUniqueInput = Prisma.AtLeast<{
   code?: Prisma.StringFilter<"OtpCode"> | string
   type?: Prisma.EnumOtpCodeTypeFilter<"OtpCode"> | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeFilter<"OtpCode"> | Date | string
+  attempts?: Prisma.IntFilter<"OtpCode"> | number
+  lockedUntil?: Prisma.DateTimeNullableFilter<"OtpCode"> | Date | string | null
+  lastSentAt?: Prisma.DateTimeNullableFilter<"OtpCode"> | Date | string | null
+  consumedAt?: Prisma.DateTimeNullableFilter<"OtpCode"> | Date | string | null
 }, "id">
 
 export type OtpCodeOrderByWithAggregationInput = {
@@ -213,9 +295,15 @@ export type OtpCodeOrderByWithAggregationInput = {
   code?: Prisma.SortOrder
   type?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  attempts?: Prisma.SortOrder
+  lockedUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  consumedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.OtpCodeCountOrderByAggregateInput
+  _avg?: Prisma.OtpCodeAvgOrderByAggregateInput
   _max?: Prisma.OtpCodeMaxOrderByAggregateInput
   _min?: Prisma.OtpCodeMinOrderByAggregateInput
+  _sum?: Prisma.OtpCodeSumOrderByAggregateInput
 }
 
 export type OtpCodeScalarWhereWithAggregatesInput = {
@@ -227,6 +315,10 @@ export type OtpCodeScalarWhereWithAggregatesInput = {
   code?: Prisma.StringWithAggregatesFilter<"OtpCode"> | string
   type?: Prisma.EnumOtpCodeTypeWithAggregatesFilter<"OtpCode"> | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"OtpCode"> | Date | string
+  attempts?: Prisma.IntWithAggregatesFilter<"OtpCode"> | number
+  lockedUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"OtpCode"> | Date | string | null
+  lastSentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"OtpCode"> | Date | string | null
+  consumedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"OtpCode"> | Date | string | null
 }
 
 export type OtpCodeCreateInput = {
@@ -235,6 +327,10 @@ export type OtpCodeCreateInput = {
   code: string
   type: $Enums.OtpCodeType
   expiresAt: Date | string
+  attempts?: number
+  lockedUntil?: Date | string | null
+  lastSentAt?: Date | string | null
+  consumedAt?: Date | string | null
 }
 
 export type OtpCodeUncheckedCreateInput = {
@@ -243,6 +339,10 @@ export type OtpCodeUncheckedCreateInput = {
   code: string
   type: $Enums.OtpCodeType
   expiresAt: Date | string
+  attempts?: number
+  lockedUntil?: Date | string | null
+  lastSentAt?: Date | string | null
+  consumedAt?: Date | string | null
 }
 
 export type OtpCodeUpdateInput = {
@@ -251,6 +351,10 @@ export type OtpCodeUpdateInput = {
   code?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumOtpCodeTypeFieldUpdateOperationsInput | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type OtpCodeUncheckedUpdateInput = {
@@ -259,6 +363,10 @@ export type OtpCodeUncheckedUpdateInput = {
   code?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumOtpCodeTypeFieldUpdateOperationsInput | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type OtpCodeCreateManyInput = {
@@ -267,6 +375,10 @@ export type OtpCodeCreateManyInput = {
   code: string
   type: $Enums.OtpCodeType
   expiresAt: Date | string
+  attempts?: number
+  lockedUntil?: Date | string | null
+  lastSentAt?: Date | string | null
+  consumedAt?: Date | string | null
 }
 
 export type OtpCodeUpdateManyMutationInput = {
@@ -275,6 +387,10 @@ export type OtpCodeUpdateManyMutationInput = {
   code?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumOtpCodeTypeFieldUpdateOperationsInput | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type OtpCodeUncheckedUpdateManyInput = {
@@ -283,6 +399,10 @@ export type OtpCodeUncheckedUpdateManyInput = {
   code?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumOtpCodeTypeFieldUpdateOperationsInput | $Enums.OtpCodeType
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type OtpCodeCountOrderByAggregateInput = {
@@ -291,6 +411,14 @@ export type OtpCodeCountOrderByAggregateInput = {
   code?: Prisma.SortOrder
   type?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  attempts?: Prisma.SortOrder
+  lockedUntil?: Prisma.SortOrder
+  lastSentAt?: Prisma.SortOrder
+  consumedAt?: Prisma.SortOrder
+}
+
+export type OtpCodeAvgOrderByAggregateInput = {
+  attempts?: Prisma.SortOrder
 }
 
 export type OtpCodeMaxOrderByAggregateInput = {
@@ -299,6 +427,10 @@ export type OtpCodeMaxOrderByAggregateInput = {
   code?: Prisma.SortOrder
   type?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  attempts?: Prisma.SortOrder
+  lockedUntil?: Prisma.SortOrder
+  lastSentAt?: Prisma.SortOrder
+  consumedAt?: Prisma.SortOrder
 }
 
 export type OtpCodeMinOrderByAggregateInput = {
@@ -307,6 +439,14 @@ export type OtpCodeMinOrderByAggregateInput = {
   code?: Prisma.SortOrder
   type?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  attempts?: Prisma.SortOrder
+  lockedUntil?: Prisma.SortOrder
+  lastSentAt?: Prisma.SortOrder
+  consumedAt?: Prisma.SortOrder
+}
+
+export type OtpCodeSumOrderByAggregateInput = {
+  attempts?: Prisma.SortOrder
 }
 
 export type EnumOtpCodeTypeFieldUpdateOperationsInput = {
@@ -321,6 +461,10 @@ export type OtpCodeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   code?: boolean
   type?: boolean
   expiresAt?: boolean
+  attempts?: boolean
+  lockedUntil?: boolean
+  lastSentAt?: boolean
+  consumedAt?: boolean
 }, ExtArgs["result"]["otpCode"]>
 
 export type OtpCodeSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -329,6 +473,10 @@ export type OtpCodeSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   code?: boolean
   type?: boolean
   expiresAt?: boolean
+  attempts?: boolean
+  lockedUntil?: boolean
+  lastSentAt?: boolean
+  consumedAt?: boolean
 }, ExtArgs["result"]["otpCode"]>
 
 export type OtpCodeSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -337,6 +485,10 @@ export type OtpCodeSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   code?: boolean
   type?: boolean
   expiresAt?: boolean
+  attempts?: boolean
+  lockedUntil?: boolean
+  lastSentAt?: boolean
+  consumedAt?: boolean
 }, ExtArgs["result"]["otpCode"]>
 
 export type OtpCodeSelectScalar = {
@@ -345,9 +497,13 @@ export type OtpCodeSelectScalar = {
   code?: boolean
   type?: boolean
   expiresAt?: boolean
+  attempts?: boolean
+  lockedUntil?: boolean
+  lastSentAt?: boolean
+  consumedAt?: boolean
 }
 
-export type OtpCodeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "code" | "type" | "expiresAt", ExtArgs["result"]["otpCode"]>
+export type OtpCodeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "code" | "type" | "expiresAt" | "attempts" | "lockedUntil" | "lastSentAt" | "consumedAt", ExtArgs["result"]["otpCode"]>
 
 export type $OtpCodePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "OtpCode"
@@ -358,6 +514,10 @@ export type $OtpCodePayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     code: string
     type: $Enums.OtpCodeType
     expiresAt: Date
+    attempts: number
+    lockedUntil: Date | null
+    lastSentAt: Date | null
+    consumedAt: Date | null
   }, ExtArgs["result"]["otpCode"]>
   composites: {}
 }
@@ -786,6 +946,10 @@ export interface OtpCodeFieldRefs {
   readonly code: Prisma.FieldRef<"OtpCode", 'String'>
   readonly type: Prisma.FieldRef<"OtpCode", 'OtpCodeType'>
   readonly expiresAt: Prisma.FieldRef<"OtpCode", 'DateTime'>
+  readonly attempts: Prisma.FieldRef<"OtpCode", 'Int'>
+  readonly lockedUntil: Prisma.FieldRef<"OtpCode", 'DateTime'>
+  readonly lastSentAt: Prisma.FieldRef<"OtpCode", 'DateTime'>
+  readonly consumedAt: Prisma.FieldRef<"OtpCode", 'DateTime'>
 }
     
 

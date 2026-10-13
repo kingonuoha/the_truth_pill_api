@@ -1,0 +1,56 @@
+-- Phase 02 — DEV-028 (security finding P02-SEC-002, High).
+--
+-- Add the four §CN-1 OTP-lockout columns so the S-027 Nest remediation is
+-- implementable: R1 `attempts`, R2 `lockedUntil`, R3 `lastSentAt`,
+-- R7 `consumedAt`.
+--
+-- WHY THIS EXISTS. The frozen Convex table (web/convex/schema.ts:268-276) is
+-- exactly five columns: email, code, type, expiresAt. The four below were added
+-- to `schema.ts` on `staging` during Phase 00 to patch S-027
+-- (phase-00/auth-security-task.md:1511-1518) and NEVER COMMITTED — so Rule 10
+-- froze the file without them, and Phase 01 ported the frozen source faithfully.
+-- This is a Rule 10 inversion, not a parity gap: not a Convex defect inherited
+-- by Nest, but a Convex FIX that never reached Nest. Without this migration the
+-- S-027 remediation is unimplementable as specified.
+--
+-- WHY IT IS FREE TODAY. `otpCodes` holds 0 rows in the frozen export and 0 on
+-- the dev branch, so this is additive, needs no backfill, takes no lock on any
+-- data, and is idempotent in effect (re-running is a no-op because the columns
+-- already exist — the migration itself is recorded once and never re-applied).
+-- This is the same argument, one step further on, that DEV-027 makes for the
+-- `code` width: "Fixing it later would mean an ALTER TYPE landing in the same
+-- phase as the auth rebuild, against a table that by then holds live OTP rows —
+-- a blocking, risky change at the worst possible moment."
+--
+-- DEVIATION FROM THE FROZEN SOURCE. `web/convex/schema.ts` does NOT have these
+-- columns and must not gain them (Rule 10). The Nest port is the remediation
+-- site, so the fix lands here. Logged as DEV-028 before this file was written.
+--
+-- ⚠️ `attempts` is NOT NULL DEFAULT 0; the other three are nullable. Nullable is
+-- load-bearing, not stylistic: "no lockout", "never resent" and "not yet used"
+-- are three distinct states, and collapsing them into 0 / epoch would make the
+-- R3 cooldown and R7 replay checks unsound on rows that predate the column.
+--
+-- ⚠️ R1 MUST BE WRITTEN AS AN ATOMIC RAW UPDATE, never findUnique → update.
+-- Convex gave per-document serializability for free; Prisma does not, and
+-- `$transaction` at READ COMMITTED does not rescue a read-then-write. Owed
+-- test: 100 concurrent failed verifications increment `attempts` by exactly
+-- 100. See DEV-028.
+--
+-- The DDL below is verbatim `prisma migrate diff --from-config-datasource
+-- --to-schema prisma/schema.prisma --script`, minus the DropIndex block.
+--
+-- ⛔ DELIBERATELY OMITTED FROM THAT GENERATED DIFF: `DROP INDEX
+-- "articles_searchVector_idx"`. That is the accepted PERMANENT drift already
+-- recorded in phase-01/checks.md and brief Caveat 0 — Prisma cannot express a
+-- GIN index, so the index exists in the database and not in the datamodel.
+-- Applying it would silently destroy the search index that DEV-008/Phase 05
+-- builds on. Do not add it. That diff's other content is the four ADD COLUMN
+-- statements and nothing else, which is the proof that this migration touches
+-- no table other than `otpCodes`.
+
+-- AlterTable
+ALTER TABLE "otpCodes" ADD COLUMN     "attempts" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "consumedAt" TIMESTAMPTZ(3),
+ADD COLUMN     "lastSentAt" TIMESTAMPTZ(3),
+ADD COLUMN     "lockedUntil" TIMESTAMPTZ(3);

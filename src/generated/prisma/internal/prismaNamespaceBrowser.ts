@@ -17,8 +17,8 @@
 
 import * as runtime from "@prisma/client/runtime/index-browser"
 
-export type * from '../models.ts'
-export type * from './prismaNamespace.ts'
+export type * from '../models'
+export type * from './prismaNamespace'
 
 export const Decimal = runtime.Decimal
 
@@ -366,7 +366,11 @@ export const OtpCodeScalarFieldEnum = {
   email: 'email',
   code: 'code',
   type: 'type',
-  expiresAt: 'expiresAt'
+  expiresAt: 'expiresAt',
+  attempts: 'attempts',
+  lockedUntil: 'lockedUntil',
+  lastSentAt: 'lastSentAt',
+  consumedAt: 'consumedAt'
 } as const
 
 export type OtpCodeScalarFieldEnum = (typeof OtpCodeScalarFieldEnum)[keyof typeof OtpCodeScalarFieldEnum]

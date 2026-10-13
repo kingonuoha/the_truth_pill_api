@@ -16,10 +16,10 @@
  */
 
 import * as runtime from "@prisma/client/runtime/client"
-import type * as Prisma from "../models.ts"
-import { type PrismaClient } from "./class.ts"
+import type * as Prisma from "../models"
+import { type PrismaClient } from "./class"
 
-export type * from '../models.ts'
+export type * from '../models'
 
 export type DMMF = typeof runtime.DMMF
 
@@ -2232,7 +2232,11 @@ export const OtpCodeScalarFieldEnum = {
   email: 'email',
   code: 'code',
   type: 'type',
-  expiresAt: 'expiresAt'
+  expiresAt: 'expiresAt',
+  attempts: 'attempts',
+  lockedUntil: 'lockedUntil',
+  lastSentAt: 'lastSentAt',
+  consumedAt: 'consumedAt'
 } as const
 
 export type OtpCodeScalarFieldEnum = (typeof OtpCodeScalarFieldEnum)[keyof typeof OtpCodeScalarFieldEnum]

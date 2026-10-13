@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.ts"
-import type * as Prisma from "../internal/prismaNamespace.ts"
+import type * as $Enums from "../enums"
+import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model AiSchedule
@@ -485,7 +485,7 @@ export type $AiSchedulePayload<ExtArgs extends runtime.Types.Extensions.Internal
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     /**
-     * [0-6]. Observed: 0, 1, 3, 6.
+     * [0-6]. Observed: 0, 1, 3, 6. `@default([])` like DEV-026.
      */
     daysOfWeek: number[]
     /**

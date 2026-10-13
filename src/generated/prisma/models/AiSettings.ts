@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.ts"
-import type * as Prisma from "../internal/prismaNamespace.ts"
+import type * as $Enums from "../enums"
+import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model AiSettings
@@ -486,18 +486,32 @@ export type $AiSettingsPayload<ExtArgs extends runtime.Types.Extensions.Internal
      */
     provider: string
     /**
-     * ⚠️ NULLABLE ON PURPOSE — DEV-015. This holds a LIVE PLAINTEXT third-party
-     * API key: web/convex/ai.ts:23 patches args.apiKey into the document raw, and
-     * the export value is a 39-char Google-format key, not ciphertext. (This
-     * corrects AGENTS.md and the original DEV-015, which both claimed it was
-     * encrypted and undecryptable outside Convex. It is not.)
+     * ⚠️ NULLABLE, AND IT HOLDS A LIVE PLAINTEXT THIRD-PARTY API KEY — DEV-015.
+     * web/convex/ai.ts:23 patches `args.apiKey` into the document raw, and the
+     * production export value is a 39-char Google-format key, not ciphertext.
+     * (This corrects AGENTS.md and the original DEV-015, which both claimed the
+     * value was encrypted and undecryptable outside Convex. It is not. The
+     * Convex schema's own `apiKey: v.string(), // encrypted` comment is likewise
+     * wrong, and Rule 10 means it stays wrong.)
      * 
-     * The import writes NULL anyway — not because the value is unreadable, but
-     * because copying a live secret through a migration pipeline would push it
-     * into transform logs, quarantine files, and target backups. The operator
-     * re-enters it in Phase 08 AND rotates it at the provider. Making the column
-     * nullable is what guarantees an empty key can never be mistaken for a
-     * working one.
+     * THE KEY IS CARRIED, NOT NULLED. Per DEV-015 (Kingsley, 2026-09-26) the
+     * import copies it byte-identically: verified source length 39, stored length
+     * 39, provider `gemini`, 1 row, byte-identical true. It is nullable because
+     * Convex declares it optional — not as a mechanism for blanking it.
+     * 
+     * ⚠️ ROTATION IS A PHASE 13 LAUNCH ITEM, not a Phase 08 re-entry task. It is
+     * item 1 on the `docs/overview.md` launch checklist. Do NOT plan to re-enter
+     * this key in Phase 08: it is already present, and re-entering it would
+     * overwrite a working value with the same value at best, or clobber it at
+     * worst. There is no null-and-refill step in this migration.
+     * 
+     * The exposure predates the migration and Nulling it would not reduce it — it
+     * would only break every AI feature. Rotation at the provider is the actual
+     * remedy, and it is the only thing that closes this.
+     * 
+     * ⚠️ NEVER log, print, or select this value into any result set, report, or
+     * migration artefact. Assert on length and boolean equality only. Checks
+     * §3.4 / §8.4 in `docs/phases/phase-02/checks.md` do exactly that.
      */
     apiKey: string | null
     model: string
