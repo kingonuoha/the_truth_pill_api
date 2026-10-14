@@ -4,3 +4,7 @@ dist/
 .env.*
 !.env.example
 *.log
+
+# Dry-run quarantine output — transient, must never be committed.
+# migration/checks.mts §5.7 asserts this directory is ABSENT.
+migration/quarantine-dryrun/

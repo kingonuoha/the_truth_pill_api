@@ -185,8 +185,8 @@ if (existsSync(qRoot)) {
   check('5.3 quarantine directory present', false, 'missing', '2 files')
 }
 
-// ══ §6 — index inventory (known gap A3/DEV-008) ══════════════════════════════
-head('§6  Index inventory — known gap: pg_trgm + articles_title_trgm (A3/DEV-008 → Phase 05)')
+// ══ §6 — index inventory (A3/DEV-008 gap CLOSED in Phase 05) ═════════════════
+head('§6  Index inventory — pg_trgm + articles_title_trgm present (DEV-008 closed)')
 // `_prisma_migrations` is Prisma Migrate's own bookkeeping table, not one of the
 // 20 app models — it carries a _pkey of its own and would inflate every count.
 const idx = await q(`SELECT tablename::text AS tablename, indexname::text AS indexname, indexdef::text AS indexdef
@@ -203,8 +203,8 @@ const titleTrgm = await count(`SELECT count(*)::int n FROM pg_indexes WHERE tabl
 check('6.2 pg_trgm extension installed', trgm === 1, trgm, 1)
 check('6.3 both GIN indexes (searchVector + title_trgm)', gin.length === 2 && titleTrgm === 1, gin.length, 2)
 for (const g of gin) console.log(`       GIN: ${g.indexname}`)
-console.log('       ⚠️  KNOWN GAP: pg_trgm absent, articles_title_trgm absent. Carried to Phase 05 (DEV-008).')
-console.log('          Recorded as pass-with-gap, NOT as a pass. §7 passes via the documented §6 path.')
+console.log('       ✅ DEV-008 closed (Phase 05): pg_trgm installed, articles_title_trgm present.')
+console.log('          §6 is a hard gate row now — a missing extension or GIN index blocks §7.')
 const sec6 = { secondary, pk, trgm, gin: gin.length, titleTrgm, total: idx.length }
 
 // ══ §7 — the acceptance gate conjunction ═════════════════════════════════════
@@ -221,8 +221,11 @@ const sec3ok = results.filter((r) => r.sec === '§3').every((r) => r.ok)
 const sec4ok = results.filter((r) => r.sec === '§4').every((r) => r.ok)
 // 7.6 §5 quarantine both sides
 const sec5ok = results.filter((r) => r.sec === '§5').every((r) => r.ok)
-// 7.7 §6 recorded as known gap
-const sec6ok = sec6.trgm === 0 && sec6.titleTrgm === 0
+// 7.7 §6 — DEV-008 gap CLOSED (Phase 05). The gate now requires the extension
+// and the trgm index to be PRESENT. It previously required their ABSENCE, which
+// was only correct while the gap was deferred; once Phase 05 fixed it, that
+// assertion became inverted and failed the gate for the wrong reason.
+const sec6ok = sec6.trgm === 1 && sec6.titleTrgm === 1
 
 // Byte-for-byte identity, per phase-01/checks.md §7. This supersedes the
 // "5 known articles" spot-check: every row of every table carrying a
@@ -307,39 +310,25 @@ const CONJ = [
   ['§3 shapes clean + apiKey byte-identical', sec3ok && identical],
   ['§4 counters exact (DEV-021/022)', sec4ok],
   ['§5 quarantine reconciled (DB + filesystem)', sec5ok],
-  ['§6 recorded as known gap (A3/DEV-008 → Phase 05)', sec6ok],
+  ['§6 pg_trgm + articles_title_trgm present (DEV-008 closed)', sec6ok],
 ] as const
 console.log('\n' + '─'.repeat(78))
 console.log('§7  ACCEPTANCE GATE — conjunction of seven')
 console.log('─'.repeat(78))
 for (const [label, ok] of CONJ) console.log(`  ${ok ? '✅' : '❌'} ${label}`)
 const failed = results.filter((r) => !r.ok)
-// checks.md §7: "A #fail in one section blocks the gate; a fail in §6 alone
-// passes-with-gap only because the gap is structurally deferred."
+// checks.md §7: "A #fail in one section blocks the gate."
 //
-// That exemption is scoped to the TWO rows that assert the known absence of
-// pg_trgm / articles_title_trgm (DEV-008, deferred to Phase 05). It is an
-// explicit allowlist, not "everything in §6": if a future §6 check regresses —
-// a dropped GIN index, a missing btree index, a changed extension set — that
-// failure is a real defect and must block. Section-level exclusion would have
-// swallowed it.
-const DEFERRED_GAP_ROWS = new Set([
-  '6.2 pg_trgm extension installed',
-  '6.3 both GIN indexes (searchVector + title_trgm)',
-])
-const gapRows = failed.filter((r) => DEFERRED_GAP_ROWS.has(r.label))
-const blocking = failed.filter((r) => !DEFERRED_GAP_ROWS.has(r.label))
-const unexpectedSec6 = blocking.filter((r) => r.sec === '§6')
-if (unexpectedSec6.length) {
-  console.log(`\n   🚨 ${unexpectedSec6.length} §6 failure(s) are NOT the documented DEV-008 gap and DO block the gate.`)
-}
+// Until Phase 05 this file carried an allowlist for the two §6 rows that
+// asserted the known ABSENCE of pg_trgm / articles_title_trgm (DEV-008,
+// deferred to Phase 05). That gap is closed, so the allowlist is gone: every
+// failure blocks, including a dropped GIN index or a missing extension.
+const blocking = failed
 const gateOk = CONJ.every(([, ok]) => ok) && blocking.length === 0
 console.log('─'.repeat(78))
-console.log(`checks run: ${results.length}   passed: ${results.length - failed.length}   failed: ${failed.length}` +
-  (gapRows.length ? `   (${gapRows.length} §6 = documented A3/DEV-008 gap, non-blocking)` : ''))
+console.log(`checks run: ${results.length}   passed: ${results.length - failed.length}   failed: ${failed.length}`)
 if (blocking.length) for (const f of blocking) console.log(`  ❌ BLOCKING ${f.sec} ${f.label}: got ${f.got}, want ${f.want}`)
-for (const f of gapRows) console.log(`  ⚠️  GAP      ${f.sec} ${f.label}: got ${f.got}, want ${f.want} — carried to Phase 05`)
-console.log(`\n§7 VERDICT: ${gateOk ? '✅ PASS — all seven conjunctions hold (with the documented §6 gap)' : '❌ FAIL'}`)
+console.log(`\n§7 VERDICT: ${gateOk ? '✅ PASS — all seven conjunctions hold' : '❌ FAIL'}`)
 console.log('§8.3 two-pass: 3-level fixture ran through the REAL pipeline — 0 orphans, fixture removed (comments back to 0)')
 
 await p.$disconnect()

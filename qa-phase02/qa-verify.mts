@@ -514,7 +514,11 @@ console.log('\n── §6  INDEX INVENTORY ' + '─'.repeat(53))
   const pk = app.filter((r) => /_pkey$/.test(r.indexname))
   const gin = app.filter((r) => /USING gin/i.test(r.indexdef))
   const trgm = all.filter((r) => /USING gin \(.*gin_trgm_ops/i.test(r.indexdef))
-  const secondary = app.length - pk.length - gin.filter((g) => !/trgm/.test(g.indexdef)).length
+  // Every GIN index must be subtracted, not only the non-trgm ones. The old
+  // `gin.filter((g) => !/trgm/.test(...))` form counted `articles_title_trgm`
+  // as a btree index and reported 38. That was invisible until Phase 05 added
+  // the trgm index (DEV-008); before that there was no trgm index to miscount.
+  const secondary = app.length - pk.length - gin.length
   note(`total public indexes ${all.length} · app-table ${app.length} · PRIMARY KEY ${pk.length} · GIN ${gin.length}`)
   rec('6.1a PRIMARY KEY indexes (one per table)', '20', String(pk.length), String(pk.length), pk.length === 20)
   rec('6.1b secondary btree indexes', '37', String(secondary), String(secondary), secondary === 37)
