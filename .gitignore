@@ -3,6 +3,12 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Local .env backups (`cp .env .env.backup-pre-*`). These hold LIVE database
+# credentials, including the Neon password, so they must never be committed.
+# Already covered by `.env.*` above; stated explicitly because the cost of a
+# missed match here is a leaked production credential.
+.env.backup-*
 *.log
 
 # Dry-run quarantine output — transient, must never be committed.
