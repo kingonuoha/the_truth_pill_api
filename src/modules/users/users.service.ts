@@ -36,6 +36,19 @@ export const UNSUBSCRIBE_TTL_SECONDS = 30 * 24 * 60 * 60;
 /** Reset links are short-lived. */
 export const RESET_TOKEN_TTL_SECONDS = 60 * 60;
 
+/**
+ * The one `users.provider` value a Google sign-in may **not** adopt (S-R2 /
+ * DEV-065).
+ *
+ * `register` below is public and unauthenticated, and it stamps every row it
+ * mints with this provider and a **caller-chosen password**. A row carrying it
+ * can therefore hold a credential a third party planted on someone else's
+ * address, which is exactly what makes adopting it an account pre-hijack. Every
+ * other provider (`google`, `guest`, `system`) is adopted — see `storeUser` for
+ * why refusing those would lock an address out of the product permanently.
+ */
+const REGISTRATION_PROVIDER = 'email';
+
 export interface NewsletterStats {
   bookmarks: number;
   comments: number;
@@ -117,14 +130,39 @@ export class UsersService {
   /**
    * Internal Google sign-in upsert. `provider` is forced to `google` server-side;
    * it is never a client input (DEV-037). Returns the Postgres id.
+   *
+   * Adoption is where S-R2 (DEV-065) is closed. The frozen
+   * `web/convex/users.ts:58` adopted any existing row by email, so a
+   * `provider: "email"` row — which `register` above mints for **any** address,
+   * unauthenticated, with an attacker-chosen password — handed the attacker a
+   * working credential for the very row the victim's Google session was pinned
+   * to. Such a row is now refused with **409** instead.
+   *
+   * Refusal is deliberately *not* "anything that is not `google`". `users.email`
+   * is `@unique` and `auth.service.login` refuses a row without a password, so
+   * answering 409 for a `guest` row (minted by the public newsletter double
+   * opt-in; 0 passwords live) or a `system` row (0 passwords live) would leave
+   * that address with no usable account at all — permanently, since no creation
+   * path can bypass the unique index. Anyone could then deny Google sign-in for
+   * any address by newsletter-subscribing it first. Those rows hold no password
+   * a third party could authenticate with, so they are safe to adopt.
+   *
+   * The 409 message is for the server log only: the global exception filter
+   * substitutes `{ code: "CONFLICT", message: "Conflict" }`, so the client
+   * learns no row id and no account-existence signal.
    */
   async storeUser(dto: StoreUserDto): Promise<{ id: string }> {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      select: { id: true, profileImage: true },
+      select: { id: true, profileImage: true, provider: true },
     });
 
     if (existing) {
+      if (existing.provider === REGISTRATION_PROVIDER) {
+        throw new ConflictException(
+          'An account with this email already exists; sign in with its password instead',
+        );
+      }
       if (dto.profileImage && existing.profileImage !== dto.profileImage) {
         await this.prisma.user.update({
           where: { id: existing.id },

@@ -29,7 +29,7 @@ import { TokenService } from '../src/modules/auth/token.service';
 import { ScopedTokenService } from '../src/modules/auth/scoped-token.service';
 import { UsersService } from '../src/modules/users/users.service';
 import type { ErrorEnvelope } from '../src/shared/types/error-envelope';
-import { TEST_API_TOKEN_SECRET, TEST_ISSUER } from './test-env';
+import { TEST_API_TOKEN_SECRET, TEST_INTERNAL_JOB_SECRET, TEST_ISSUER } from './test-env';
 
 /** Marker used to prove the opaque 500 path leaks nothing. */
 const SECRET =
@@ -145,6 +145,19 @@ function postJson(url: string, payload: unknown): Promise<ProbeResponse> {
   });
 }
 
+/** `POST` with an explicit header set — used for the `/internal/*` secret. */
+function postJsonWithHeaders(
+  url: string,
+  payload: unknown,
+  headers: Record<string, string>,
+): Promise<ProbeResponse> {
+  return request(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(payload),
+  });
+}
+
 function patchJson(
   url: string,
   payload: unknown,
@@ -221,6 +234,10 @@ async function main(): Promise<number> {
   const victimEmail = `e2e-victim-${suffix}@example.test`;
   const targetEmail = `e2e-target-${suffix}@example.test`;
   const guestEmail = `e2e-guest-${suffix}@example.test`;
+  const hijackEmail = `e2e-hijack-${suffix}@example.test`;
+  const googleEmail = `e2e-google-${suffix}@example.test`;
+  const guestAdoptEmail = `e2e-guest-adopt-${suffix}@example.test`;
+  const systemEmail = `e2e-system-${suffix}@example.test`;
   const passwordPlain = 'correct horse battery staple';
   const passwordHash = await passwords.hash(passwordPlain);
 
@@ -237,12 +254,34 @@ async function main(): Promise<number> {
     select: { id: true },
   });
 
+  // A `system` row shaped like production's (role admin, no password). DEV-065
+  // requires it to stay adoptable: it holds no password, so a 409 would leave it
+  // with no reachable sign-in at all.
+  const systemRow = await prisma.user.create({
+    data: { name: 'E2E System', email: systemEmail, provider: 'system', role: 'admin', createdAt: new Date() },
+    select: { id: true },
+  });
+
   const adminToken = tokens.sign(admin.id).token;
   const victimToken = tokens.sign(victim.id).token;
+  const internal = { 'x-internal-secret': TEST_INTERNAL_JOB_SECRET as string };
 
   const cleanup = async (): Promise<void> => {
     await prisma.user.deleteMany({
-      where: { email: { in: [adminEmail, victimEmail, targetEmail, guestEmail] } },
+      where: {
+        email: {
+          in: [
+            adminEmail,
+            victimEmail,
+            targetEmail,
+            guestEmail,
+            hijackEmail,
+            googleEmail,
+            guestAdoptEmail,
+            systemEmail,
+          ],
+        },
+      },
     });
   };
 
@@ -625,6 +664,126 @@ async function main(): Promise<number> {
           userEmail: adminEmail,
         });
         assert.equal(res.status, 400);
+      },
+    },
+    /* ── S-R2 / DEV-065: the Google upsert must not adopt a row that already
+     *    carries a password a third party planted. ── */
+    {
+      name: 'DEV-065 / S-R2: /users/register then /internal/users/store for the same address -> 409, no borrowed id',
+      run: async () => {
+        // The attack, step 1: anyone, unauthenticated, plants a password on an
+        // address they do not own.
+        const registered = await postJson(`${base}/users/register`, {
+          name: 'Planted Account',
+          email: hijackEmail,
+          password: passwordPlain,
+        });
+        assert.equal(registered.status, 200);
+
+        const planted = await prisma.user.findUnique({
+          where: { email: hijackEmail },
+          select: { id: true, provider: true, password: true, name: true },
+        });
+        assert.equal(planted?.provider, 'email', 'register must mint provider "email"');
+        assert.ok(planted?.password, 'register must store the caller-chosen password');
+
+        // Step 2: the victim's Google sign-in must be refused, not merged into
+        // the planted row. On the pre-fix code this returned 200 `{id: planted.id}`.
+        const res = await postJsonWithHeaders(
+          `${base}/internal/users/store`,
+          { name: 'Victim Via Google', email: hijackEmail },
+          internal,
+        );
+        assert.equal(res.status, 409, 'adopting a password-bearing row is the pre-hijack');
+        const envelope = readEnvelope(res.body);
+        assert.equal(envelope.code, 'CONFLICT');
+        assert.ok(
+          !res.text.includes(planted?.id ?? 'no-id'),
+          'the 409 must not disclose the planted row id',
+        );
+
+        // The refusal is side-effect free: the planted row is untouched, so the
+        // attacker's password is neither honoured nor silently scrubbed.
+        const after = await prisma.user.findUnique({
+          where: { email: hijackEmail },
+          select: { provider: true, name: true, password: true, profileImage: true },
+        });
+        assert.equal(after?.provider, 'email');
+        assert.equal(after?.name, 'Planted Account');
+        assert.ok(after?.password, 'the refusal must not touch the row');
+        assert.equal(after?.profileImage, null);
+      },
+    },
+    {
+      name: 'DEV-065: a genuine Google row still upserts idempotently -> 200, same id',
+      run: async () => {
+        const first = await postJsonWithHeaders(
+          `${base}/internal/users/store`,
+          { name: 'Real Google User', email: googleEmail, profileImage: 'https://cdn.test/a.png' },
+          internal,
+        );
+        assert.equal(first.status, 200);
+        const firstId = (first.body as { id: string }).id;
+        assert.equal(typeof firstId, 'string');
+
+        const second = await postJsonWithHeaders(
+          `${base}/internal/users/store`,
+          { name: 'Real Google User', email: googleEmail, profileImage: 'https://cdn.test/b.png' },
+          internal,
+        );
+        assert.equal(second.status, 200);
+        assert.equal((second.body as { id: string }).id, firstId, 're-login must reuse the row');
+
+        const row = await prisma.user.findUnique({
+          where: { email: googleEmail },
+          select: { provider: true, profileImage: true, password: true },
+        });
+        assert.equal(row?.provider, 'google');
+        assert.equal(row?.profileImage, 'https://cdn.test/b.png');
+        assert.equal(row?.password, null, 'a Google row must carry no password');
+      },
+    },
+    {
+      name: 'DEV-065: guest and system rows are still adopted -> 200 (a 409 would lock the address out)',
+      run: async () => {
+        // `guest` is minted by the public newsletter double opt-in and holds no
+        // password, so nobody can authenticate as it. Refusing it would let an
+        // unauthenticated subscribe deny Google sign-in for any address.
+        const subscribed = await postJson(`${base}/users/newsletter/subscribe`, {
+          email: guestAdoptEmail,
+        });
+        assert.equal(subscribed.status, 200);
+        const guestRow = await prisma.user.findUnique({
+          where: { email: guestAdoptEmail },
+          select: { id: true, provider: true },
+        });
+        assert.equal(guestRow?.provider, 'guest');
+
+        const guestStore = await postJsonWithHeaders(
+          `${base}/internal/users/store`,
+          { name: 'Newsletter Reader', email: guestAdoptEmail },
+          internal,
+        );
+        assert.equal(guestStore.status, 200);
+        assert.equal(
+          (guestStore.body as { id: string }).id,
+          guestRow?.id,
+          'the guest row must be adopted, not duplicated (email is unique)',
+        );
+
+        // `system` is the machine-authored provider and holds no password; it is
+        // not reachable from any public write, so it is not attacker-plantable.
+        const systemStore = await postJsonWithHeaders(
+          `${base}/internal/users/store`,
+          { name: 'System Owner', email: systemEmail },
+          internal,
+        );
+        assert.equal(systemStore.status, 200);
+        assert.equal(
+          (systemStore.body as { id: string }).id,
+          systemRow.id,
+          'the system row must be adopted, not refused',
+        );
       },
     },
   ];
